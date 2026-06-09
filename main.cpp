@@ -147,6 +147,30 @@ struct Color {
 	unsigned char r, g, b;
 };
 
+Color multiplicacion(Color c1, Color c2) {
+	return {
+        static_cast<unsigned char>(min(c1.r * c2.r / 255.0, 255.0)),
+        static_cast<unsigned char>(min(c1.g * c2.g / 255.0, 255.0)),
+        static_cast<unsigned char>(min(c1.b * c2.b / 255.0, 255.0))
+	};
+}
+
+Color multiplicacion(Color c1, float x) {
+	return {
+		static_cast<unsigned char>(min(c1.r * x, 255.0f)),
+		static_cast<unsigned char>(min(c1.g * x, 255.0f)),
+		static_cast<unsigned char>(min(c1.b * x, 255.0f))
+	};
+}
+
+Color suma(Color c1, Color c2) {
+	return {
+		static_cast<unsigned char>(min(c1.r + c2.r, 255)),
+		static_cast<unsigned char>(min(c1.g + c2.g, 255)),
+		static_cast<unsigned char>(min(c1.b + c2.b, 255))
+	};
+}
+
 void guardar_render_a_png(const std::vector<Color>& pixel_buffer, int ancho, int alto, const char* nombre_archivo) {
 	// 1. Inicializar la librería (obligatorio)
 	FreeImage_Initialise();
@@ -191,19 +215,15 @@ void guardar_render_a_png(const std::vector<Color>& pixel_buffer, int ancho, int
 class Luz {
 private:
 	Vector posicion;
-	Color ambiente, difusa, especular;
+	Color difusa, especular;
 public:
-	Luz(Vector posicion, Color ambiente, Color difusa, Color especular)
-		: posicion(posicion), ambiente(ambiente), difusa(difusa), especular(especular) {}
+	Luz(Vector posicion, Color difusa, Color especular)
+		: posicion(posicion), difusa(difusa), especular(especular) {}
 
 	Vector get_posicion() {
 		return posicion;
 	}
 
-	// Componentes de luz
-	Color luz_ambiente() {
-		return ambiente;
-	}
 	Color luz_difusa() {
 		return difusa;
 	}
@@ -264,7 +284,7 @@ public:
 		(p + tv - centro) * (p + tv - centro) = radio ^ 2
 		p * p + p * tv - p * centro + p * tv + tv * tv - tv * centro - centro * p - centro * tv + centro * centro = radio ^ 2
 		p * p + t^2(v * v) + centro * centro + 2t(p * v) - 2(p * centro) - 2t(centro * v) = radio ^ 2;
-		(v * v)t^2 + (2(p * v) - 2(centro * v))t + p * p - centro * centro - 2(p * centro) - radio ^ 2;
+		(v * v)t^2 + (2(p * v) - 2(centro * v))t + p * p - centro * centro - 2(p * centro) - radio ^ 2 = 0;
 		*/
 
 		float c = p.get_norma_2() + centro.get_norma_2() - 2 * p.producto_interno(centro) - radio * radio,
@@ -349,9 +369,10 @@ class Escena {
 private:
 	vector<Objeto *> lista_objetos;
 	vector<Luz *> lista_luces;
-	Color color;
+	Color color, ambiente;
 public:
-	Escena(Color color_ambiente) : color(color_ambiente) {};
+	Escena(Color color_fondo, Color luz_ambiente)
+		: color(color_fondo), ambiente(luz_ambiente) {};
 	Escena(string archivo);
 
 	void agregar(Objeto *o) {
@@ -370,8 +391,12 @@ public:
 		return lista_luces;
 	}
 
-	Color color_ambiente() {
+	Color color_fondo() {
 		return color;
+	}
+
+	Color luz_ambiente() {
+		return ambiente;
 	}
 };
 
@@ -379,46 +404,21 @@ class Rayo {
 private:
 	Vector punto_inicial, direccion;
 
-	static Color multiplicacion(Color c1, Color c2) {
-		return {
-	        static_cast<unsigned char>(c1.r * c2.r / 255.0),
-	        static_cast<unsigned char>(c1.g * c2.g / 255.0),
-	        static_cast<unsigned char>(c1.b * c2.b / 255.0)
-		};
-	}
-
-	static Color multiplicacion(Color c1, float x) {
-		return {
-			c1.r * x,
-			c1.g * x,
-			c1.b * x
-		};
-	}
-
-	static Color suma(Color c1, Color c2) {
-		return {
-			c1.r + c2.r,
-			c1.g + c2.g,
-			c1.b + c2.b
-		};
-	}
-
 	Color sombra(Objeto *objeto, float t, Escena *escena, int profundidad) {
 		Vector punto = punto_inicial + t * direccion;
 		Vector normal = objeto->normal_en_punto(punto).normal();
-		Color color = {0, 0, 0};
+		Color color = multiplicacion(objeto->luz_ambiente(), escena->luz_ambiente());
 
 		for (const auto &luz : escena->luces()) {
-			color = suma(color, multiplicacion(objeto->luz_ambiente(), luz->luz_ambiente()));
-			Vector direccion_a_luz = (luz->get_posicion() - punto).normal();
+			Vector direccion_a_luz = luz->get_posicion() - punto;
 			float producto = normal.producto_interno(direccion_a_luz);
 
 			if (producto > 0) {
-				Color c2 = multiplicacion(objeto->luz_difusa(), luz->luz_difusa());
-
-				color = suma(color, multiplicacion(multiplicacion(objeto->luz_difusa(), luz->luz_difusa()), producto));
+				color = suma(color, multiplicacion(multiplicacion(objeto->luz_difusa(), producto), luz->luz_difusa()));
+				color = suma(color, multiplicacion(multiplicacion(objeto->luz_especular(), luz->luz_especular()), producto * producto * producto));
 			}
 		}
+
 		return color;
 	}
 public:
@@ -441,7 +441,7 @@ public:
 		if (objeto_mas_cercano != nullptr) {
 			return sombra(objeto_mas_cercano, distancia_minima, escena, profundidad);
 		} else {
-			return escena->color_ambiente();
+			return escena->color_fondo();
 		}
 	}
 };
@@ -477,19 +477,20 @@ public:
 
 int main() {
 	Color color_ambiente({0, 0, 0});
-	Escena escena(color_ambiente);
+	Color luz_ambiente({50, 50, 50});
+	Escena escena(color_ambiente, luz_ambiente);
 
 	Vector posicion_esfera(0, 0, 6);
 	Color color({255, 0, 0});
-	Esfera e(posicion_esfera, 2, false, 1, color, color, {255, 255, 255});
+	Esfera e(posicion_esfera, 2, false, 1, color, color, {100, 100, 100});
 	escena.agregar(&e);
 
-	Vector posicion_luz(0, 2, 4);
+	Vector posicion_luz(0, 2, 3);
 	Color color_luz({255, 255, 255});
-	Luz l(posicion_luz, {50, 50, 50}, {200, 200, 200}, {100, 100, 100});
+	Luz l(posicion_luz, {200, 200, 200}, {100, 100, 100});
 	escena.agregar(&l);
 
-	int largo = 400, alto = 200;
+	int largo = 2000, alto = 1000;
 
 	Vector posicion_camara(0, 0, 0);
 	Imagen imagen(&escena, largo, alto, posicion_camara);
