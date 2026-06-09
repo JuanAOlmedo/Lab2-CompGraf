@@ -128,7 +128,7 @@ public:
 	    return std::acos(c);
 	}
 
-	constexpr Vector reflexion(const Vector& w) const {
+	Vector reflexion(const Vector& w) const {
 		auto w_normalizado = w.normal();
 
 		return *this - w_normalizado * 2 * producto_interno(w_normalizado);
@@ -194,7 +194,7 @@ private:
 	virtual Color luz_ambiente() = 0;
 	virtual Color luz_difusa() = 0;
 	virtual Color luz_especular() = 0;
-}
+};
 
 class Objeto {
 	bool reflejante;
@@ -206,11 +206,11 @@ public:
 		  ambiente(ambiente), difusa(difusa), especular(especular) {}
 
 	// Devuelven si el objeto es reflejante y su transparencia
-	bool reflejante() {
+	bool get_reflejante() {
 		return reflejante;
 	}
 
-	float transparencia() {
+	float get_transparencia() {
 		return transparencia;
 	}
 
@@ -240,7 +240,7 @@ private:
 public:
 	Esfera(Vector centro, float radio,bool reflejante, float transparencia,
 		   Color ambiente, Color difusa, Color especular)
-		: centro(c), radio(r), Objeto(reflejante, transparencia, ambiente, difusa, especular) {}
+		: centro(centro), radio(radio), Objeto(reflejante, transparencia, ambiente, difusa, especular) {}
 
 	float interseccion_mas_cercana(Vector p, Vector v) {
 		/*
@@ -250,15 +250,18 @@ public:
 		(v * v)t^2 + (2(p * v) - 2(centro * v))t + p * p - centro * centro - 2(p * centro) - radio ^ 2;
 		*/
 
-		float c = p.get_norma_2() - centro.get_norma_2() - 2 * p.producto_interno(centro) - radio * radio,
+		float c = p.get_norma_2() + centro.get_norma_2() - 2 * p.producto_interno(centro) - radio * radio,
 			  b = 2 * p.producto_interno(v) - 2 * centro.producto_interno(v),
 			  a = v.get_norma_2();
+
+		if (b * b - 4 * a * c < 0)
+			return -1; 
 
 		float t1 = (-b - sqrt(b * b - 4 * a * c)) / (2 * a),
 			  t2 = (-b + sqrt(b * b - 4 * a * c)) / (2 * a);
 
 		if (t1 < 0 && t2 < 0)
-			return Inf;
+			return -1;
 
 		if (t1 < 0)
 			return t2;
@@ -274,47 +277,38 @@ public:
 	}
 };
 
+/*
 class Cilindro : public Objeto {
 private:
-	Vector centro; // Un punto por el que pasa el eje central del cilindro
+	Vector centro; // Centro de la base inferior del cilindro
 	float radio;
-	float altura;
+	float altura;  // Altura total del cilindro
+
 public:
-	// Constructor para inicializar los valores
 	Cilindro(Vector c, float r, float h) : centro(c), radio(r), altura(h) {}
 
-	class Cilindro : public Objeto {
-	private:
-		Vector centro; // Centro de la base inferior del cilindro
-		float radio;
-		float altura;  // Altura total del cilindro
+	Vector normal_en_punto(Vector p) {
+		// Un margen de error pequeño para las comparaciones de punto flotante
+		const float EPSILON = 0.0001f;
 
-	public:
-		Cilindro(Vector c, float r, float h) : centro(c), radio(r), altura(h) {}
-
-		Vector normal_en_punto(Vector p) {
-			// Un margen de error pequeño para las comparaciones de punto flotante
-			const float EPSILON = 0.0001f;
-
-			// 1. Verificar si el punto está en la tapa superior
-			// La altura en Y de la tapa superior es: centro.y + altura
-			if (p.y >= (centro.y + altura) - EPSILON) {
-				return Vector(0.0f, 1.0f, 0.0f); // Normal hacia arriba
-			}
-
-			// 2. Verificar si el punto está en la tapa inferior
-			// La altura en Y de la tapa inferior es: centro.y
-			if (p.y <= centro.y + EPSILON) {
-				return Vector(0.0f, -1.0f, 0.0f); // Normal hacia abajo
-			}
-
-			// 3. Si no está en las tapas, está en el cuerpo lateral
-			Vector de_centro_a_p = p - centro;
-			de_centro_a_p.y = 0.0f; // Ignoramos la altura para la pared lateral
-
-			return de_centro_a_p / radio; // Vector normalizado hacia afuera
+		// 1. Verificar si el punto está en la tapa superior
+		// La altura en Y de la tapa superior es: centro.y + altura
+		if (p.y >= (centro.y + altura) - EPSILON) {
+			return Vector(0.0f, 1.0f, 0.0f); // Normal hacia arriba
 		}
-	};
+
+		// 2. Verificar si el punto está en la tapa inferior
+		// La altura en Y de la tapa inferior es: centro.y
+		if (p.y <= centro.y + EPSILON) {
+			return Vector(0.0f, -1.0f, 0.0f); // Normal hacia abajo
+		}
+
+		// 3. Si no está en las tapas, está en el cuerpo lateral
+		Vector de_centro_a_p = p - centro;
+		de_centro_a_p.y = 0.0f; // Ignoramos la altura para la pared lateral
+
+		return de_centro_a_p / radio; // Vector normalizado hacia afuera
+	}
 };
 
 class Malla : public Objeto {
@@ -332,21 +326,36 @@ public:
 		return Vector(0, 0, 1); // Placeholder, replace with actual normal calculation
 	}
 };
+*/
 
 class Escena {
 private:
 	vector<Objeto *> lista_objetos;
 	vector<Luz *> lista_luces;
+	Color color;
 public:
-	Escena();
+	Escena(Color color_ambiente) : color(color_ambiente) {};
 	Escena(string archivo);
 
-	void agregar(Objeto *o);
-	void agregar(Luz *l);
+	void agregar(Objeto *o) {
+		lista_objetos.push_back(o);
+	}
 
-	vector<Objeto *> objetos();
-	vector<Luz *> luces();
-	Color color_ambiente();
+	void agregar(Luz *l) {
+		lista_luces.push_back(l);
+	}
+
+	vector<Objeto *> objetos() {
+		return lista_objetos;
+	}
+
+	vector<Luz *> luces() {
+		return lista_luces;
+	}
+
+	Color color_ambiente() {
+		return color;
+	}
 };
 
 class Rayo {
@@ -354,7 +363,7 @@ private:
 	Vector punto_inicial, direccion;
 
 	Color sombra(Objeto *objeto, float t, Escena *escena, int profundidad) {
-		Vector normal = objeto->normal_en_punto(punto_inicial + distancia_minima * direccion);
+		Vector normal = objeto->normal_en_punto(punto_inicial + t * direccion);
 
 		Color color = escena->color_ambiente();
 
@@ -365,13 +374,13 @@ public:
 		: punto_inicial(punto_inicial), direccion(direccion) {}
 
 	Color color(Escena *escena, int profundidad) {
-		int distancia_minima = Inf;
+		int distancia_minima = numeric_limits<float>::infinity();
 		Objeto *objeto_mas_cercano = nullptr;
 
 		for (auto objeto : escena->objetos()) {
 			float distancia = objeto->interseccion_mas_cercana(punto_inicial, direccion);
 
-			if (distancia < distancia_minima) {
+			if (distancia < distancia_minima && distancia > 0) {
 				objeto_mas_cercano = objeto;
 				distancia_minima = distancia;
 			}
@@ -393,8 +402,8 @@ private:
 
 	vector<Color> pixeles;
 public:
-	Imagen(Escena *escena, int largo, int alto)
-		: escena(escena), largo(largo), alto(alto) {}
+	Imagen(Escena *escena, int largo, int alto, Vector posicion_camara)
+		: escena(escena), largo(largo), alto(alto), posicion_camara(posicion_camara) {}
 
 	// Dibuja la escena y devuelve los pixeles (el tamaño del vector es largo * alto)
 	vector<Color> dibujar() {
@@ -403,7 +412,7 @@ public:
 				Vector direccion(i - alto / 2.0, j - largo / 2.0, 1);
 
 				Rayo r(posicion_camara, direccion);
-				pixeles[i * largo + j] = r.color(escena, 2);
+				pixeles.push_back(r.color(escena, 2));
 			}
 		}
 
@@ -415,5 +424,18 @@ public:
 };
 
 int main() {
+	Color color_ambiente({0, 0, 0});
+	Color color({255, 0, 0});
+	Escena escena(color_ambiente);
 
+	Vector posicion_esfera(0, 0, 2.1);
+	Esfera e(posicion_esfera, 2, false, 1, color, color, color);
+	escena.agregar(&e);
+
+	int largo = 50, alto = 50;
+
+	Vector posicion_camara(0, 0, 0);
+	Imagen imagen(&escena, largo, alto, posicion_camara);
+
+	guardar_render_a_png(imagen.dibujar(), largo, alto, "olmedo3.png");
 }
