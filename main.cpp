@@ -5,6 +5,7 @@
 #include <iostream>
 #include <cassert>
 #include <limits>
+#include <FreeImage.h>
 
 using namespace std;
 
@@ -139,8 +140,49 @@ public:
 };
 
 struct Color {
-	float r, g, b;
+	unsigned char r, g, b;
 };
+
+void guardar_render_a_png(const std::vector<Color>& pixel_buffer, int ancho, int alto, const char* nombre_archivo) {
+	// 1. Inicializar la librería (obligatorio)
+	FreeImage_Initialise();
+
+	// 2. Crear el mapa de bits en FreeImage. 
+	// Ojo: FreeImage por defecto usa el orden BGR/BGRA de 24 o 32 bits.
+	FIBITMAP* imagen = FreeImage_Allocate(ancho, alto, 24); // 24 bits = 3 bytes por píxel (RGB)
+
+	if (!imagen) {
+		// Manejar error
+		FreeImage_DeInitialise();
+		return;
+	}
+
+	// 3. Pasar los píxeles de tu arreglo al formato de FreeImage
+	// Nota: El Ray Tracing suele calcular de arriba-abajo, pero FreeImage lee de abajo-arriba (Y invertida).
+	for (int y = 0; y < alto; y++) {
+		// Conseguimos un puntero a la fila actual de la imagen de FreeImage
+		BYTE* fila = FreeImage_GetScanLine(imagen, y);
+
+		for (int x = 0; x < ancho; x++) {
+			// En un Ray Tracer clásico, el origen (0,0) está arriba a la izquierda.
+			// Para corregir la inversión vertical de FreeImage mapeamos la Y al revés:
+			int indice_tu_buffer = (alto - 1 - y) * ancho + x;
+
+			// FreeImage espera los bytes en orden B-G-R
+			fila[x * 3 + 0] = pixel_buffer[indice_tu_buffer].b; // Blue
+			fila[x * 3 + 1] = pixel_buffer[indice_tu_buffer].g; // Green
+			fila[x * 3 + 2] = pixel_buffer[indice_tu_buffer].r; // Red
+		}
+	}
+
+	// 4. Guardar la imagen en disco
+	// El tercer parámetro son flags (PNG_DEFAULT es compresión estándar)
+	FreeImage_Save(FIF_PNG, imagen, nombre_archivo, PNG_DEFAULT);
+
+	// 5. Limpieza de memoria
+	FreeImage_Unload(imagen);
+	FreeImage_DeInitialise();
+}
 
 class Luz {
 private:
