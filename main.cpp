@@ -379,20 +379,47 @@ class Rayo {
 private:
 	Vector punto_inicial, direccion;
 
-	Color sombra(Objeto *objeto, float t, Escena *escena, int profundidad) {
-		Vector normal = objeto->normal_en_punto(punto_inicial + t * direccion);
+	static Color multiplicacion(Color c1, Color c2) {
+		return {
+	        static_cast<unsigned char>(c1.r * c2.r / 255.0),
+	        static_cast<unsigned char>(c1.g * c2.g / 255.0),
+	        static_cast<unsigned char>(c1.b * c2.b / 255.0)
+		};
+	}
 
-		Color color = escena->color_ambiente();
+	static Color multiplicacion(Color c1, float x) {
+		return {
+			c1.r * x,
+			c1.g * x,
+			c1.b * x
+		};
+	}
+
+	static Color suma(Color c1, Color c2) {
+		return {
+			c1.r + c2.r,
+			c1.g + c2.g,
+			c1.b + c2.b
+		};
+	}
+
+	Color sombra(Objeto *objeto, float t, Escena *escena, int profundidad) {
+		Vector punto = punto_inicial + t * direccion;
+		Vector normal = objeto->normal_en_punto(punto).normal();
+		Color color = {0, 0, 0};
 
 		for (const auto &luz : escena->luces()) {
-			Vector direccion_a_luz = (luz->get_posicion() - punto_inicial).normal();
+			color = suma(color, multiplicacion(objeto->luz_ambiente(), luz->luz_ambiente()));
+			Vector direccion_a_luz = (luz->get_posicion() - punto).normal();
+			float producto = normal.producto_interno(direccion_a_luz);
 
-			if (normal.producto_interno(direccion_a_luz)) {
-				return objeto->luz_difusa();
+			if (producto > 0) {
+				Color c2 = multiplicacion(objeto->luz_difusa(), luz->luz_difusa());
+
+				color = suma(color, multiplicacion(multiplicacion(objeto->luz_difusa(), luz->luz_difusa()), producto));
 			}
 		}
-
-		return objeto->luz_difusa();
+		return color;
 	}
 public:
 	Rayo(Vector punto_inicial, Vector direccion)
@@ -454,10 +481,15 @@ int main() {
 
 	Vector posicion_esfera(0, 0, 6);
 	Color color({255, 0, 0});
-	Esfera e(posicion_esfera, 2, false, 1, color, color, color);
+	Esfera e(posicion_esfera, 2, false, 1, color, color, {255, 255, 255});
 	escena.agregar(&e);
 
-	int largo = 200, alto = 100;
+	Vector posicion_luz(0, 2, 4);
+	Color color_luz({255, 255, 255});
+	Luz l(posicion_luz, {50, 50, 50}, {200, 200, 200}, {100, 100, 100});
+	escena.agregar(&l);
+
+	int largo = 400, alto = 200;
 
 	Vector posicion_camara(0, 0, 0);
 	Imagen imagen(&escena, largo, alto, posicion_camara);
