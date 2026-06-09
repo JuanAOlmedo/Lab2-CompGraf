@@ -101,6 +101,10 @@ public:
 		return std::sqrt(x * x + y * y + z * z);
 	}
 
+	float get_norma_2() const {
+		return x * x + y * y + z * z;
+	}
+
 	Vector normal() const {
 		float norm = get_norma();
 
@@ -151,15 +155,35 @@ private:
 }
 
 class Objeto {
+	bool reflejante;
+	float transparencia;
+	Color ambiente, difusa, especular;
 public:
+	Objeto(bool reflejante, float transparencia, Color ambiente, Color difusa, Color especular)
+		: reflejante(reflejante), transparencia(transparencia),
+		  ambiente(ambiente), difusa(difusa), especular(especular) {}
+
 	// Devuelven si el objeto es reflejante y su transparencia
-	virtual bool reflejante() = 0;
-	virtual float transparencia() = 0;
+	bool reflejante() {
+		return reflejante;
+	}
+
+	float transparencia() {
+		return transparencia;
+	}
 
 	// Componentes de luz
-	virtual Color luz_ambiente() = 0;
-	virtual Color luz_difusa() = 0;
-	virtual Color luz_especular() = 0;
+	Color luz_ambiente() {
+		return ambiente;
+	}
+
+	Color luz_difusa() {
+		return difusa;
+	}
+
+	Color luz_especular() {
+		return especular;
+	}
 
 	// Devuelve el menor t > 0 tal que p + tv está en el objeto.
 	virtual float interseccion_mas_cercana(Vector p, Vector v) = 0;
@@ -172,7 +196,37 @@ private:
 	Vector centro;
 	float radio;
 public:
-	Esfera(Vector c, float r) : centro(c), radio(r) {}
+	Esfera(Vector centro, float radio,bool reflejante, float transparencia,
+		   Color ambiente, Color difusa, Color especular)
+		: centro(c), radio(r), Objeto(reflejante, transparencia, ambiente, difusa, especular) {}
+
+	float interseccion_mas_cercana(Vector p, Vector v) {
+		/*
+		(p + tv - centro) * (p + tv - centro) = radio ^ 2
+		p * p + p * tv - p * centro + p * tv + tv * tv - tv * centro - centro * p - centro * tv + centro * centro = radio ^ 2
+		p * p + t^2(v * v) + centro * centro + 2t(p * v) - 2(p * centro) - 2t(centro * v) = radio ^ 2;
+		(v * v)t^2 + (2(p * v) - 2(centro * v))t + p * p - centro * centro - 2(p * centro) - radio ^ 2;
+		*/
+
+		float c = p.get_norma_2() - centro.get_norma_2() - 2 * p.producto_interno(centro) - radio * radio,
+			  b = 2 * p.producto_interno(v) - 2 * centro.producto_interno(v),
+			  a = v.get_norma_2();
+
+		float t1 = (-b - sqrt(b * b - 4 * a * c)) / (2 * a),
+			  t2 = (-b + sqrt(b * b - 4 * a * c)) / (2 * a);
+
+		if (t1 < 0 && t2 < 0)
+			return Inf;
+
+		if (t1 < 0)
+			return t2;
+
+		if (t2 < 0)
+			return t1;
+
+		return min(t1, t2);
+	}
+
 	Vector normal_en_punto(Vector p) {
 		return (p - centro) / radio;
 	}
@@ -262,7 +316,7 @@ private:
 
 		Color color = escena->color_ambiente();
 
-		return color;
+		return objeto->luz_difusa();
 	}
 public:
 	Rayo(Vector punto_inicial, Vector direccion)
@@ -310,6 +364,8 @@ public:
 				pixeles[i * largo + j] = r.color(escena, 2);
 			}
 		}
+
+		return pixeles;
 	}
 
 	// Guarda la imagen en un archivo
