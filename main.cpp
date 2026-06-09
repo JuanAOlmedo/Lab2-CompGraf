@@ -190,13 +190,30 @@ void guardar_render_a_png(const std::vector<Color>& pixel_buffer, int ancho, int
 
 class Luz {
 private:
+	Vector posicion;
+	Color ambiente, difusa, especular;
+public:
+	Luz(Vector posicion, Color ambiente, Color difusa, Color especular)
+		: posicion(posicion), ambiente(ambiente), difusa(difusa), especular(especular) {}
+
+	Vector get_posicion() {
+		return posicion;
+	}
+
 	// Componentes de luz
-	virtual Color luz_ambiente() = 0;
-	virtual Color luz_difusa() = 0;
-	virtual Color luz_especular() = 0;
+	Color luz_ambiente() {
+		return ambiente;
+	}
+	Color luz_difusa() {
+		return difusa;
+	}
+	Color luz_especular() {
+		return especular;
+	}
 };
 
 class Objeto {
+private:
 	bool reflejante;
 	float transparencia;
 	Color ambiente, difusa, especular;
@@ -206,24 +223,24 @@ public:
 		  ambiente(ambiente), difusa(difusa), especular(especular) {}
 
 	// Devuelven si el objeto es reflejante y su transparencia
-	bool get_reflejante() {
+	bool get_reflejante() const {
 		return reflejante;
 	}
 
-	float get_transparencia() {
+	float get_transparencia() const {
 		return transparencia;
 	}
 
 	// Componentes de luz
-	Color luz_ambiente() {
+	Color luz_ambiente() const {
 		return ambiente;
 	}
 
-	Color luz_difusa() {
+	Color luz_difusa() const {
 		return difusa;
 	}
 
-	Color luz_especular() {
+	Color luz_especular() const {
 		return especular;
 	}
 
@@ -310,7 +327,7 @@ public:
 		return de_centro_a_p / radio; // Vector normalizado hacia afuera
 	}
 };
-
+/*
 class Malla : public Objeto {
 public:
 	normal_en_punto(Vector	 p) {
@@ -345,11 +362,11 @@ public:
 		lista_luces.push_back(l);
 	}
 
-	vector<Objeto *> objetos() {
+	const vector<Objeto *> &objetos() {
 		return lista_objetos;
 	}
 
-	vector<Luz *> luces() {
+	const vector<Luz *> &luces() {
 		return lista_luces;
 	}
 
@@ -366,6 +383,14 @@ private:
 		Vector normal = objeto->normal_en_punto(punto_inicial + t * direccion);
 
 		Color color = escena->color_ambiente();
+
+		for (const auto &luz : escena->luces()) {
+			Vector direccion_a_luz = (luz->get_posicion() - punto_inicial).normal();
+
+			if (normal.producto_interno(direccion_a_luz)) {
+				return objeto->luz_difusa();
+			}
+		}
 
 		return objeto->luz_difusa();
 	}
@@ -409,7 +434,7 @@ public:
 	vector<Color> dibujar() {
 		for (int i = 0; i < alto; i++) {
 			for (int j = 0; j < largo; j++) {
-				Vector direccion(i - alto / 2.0, j - largo / 2.0, 1);
+				Vector direccion((i - alto / 2.0) / alto , (j - largo / 2.0) / alto, 1);
 
 				Rayo r(posicion_camara, direccion);
 				pixeles.push_back(r.color(escena, 2));
@@ -425,17 +450,17 @@ public:
 
 int main() {
 	Color color_ambiente({0, 0, 0});
-	Color color({255, 0, 0});
 	Escena escena(color_ambiente);
 
-	Vector posicion_esfera(0, 0, 2.1);
+	Vector posicion_esfera(0, 0, 6);
+	Color color({255, 0, 0});
 	Esfera e(posicion_esfera, 2, false, 1, color, color, color);
 	escena.agregar(&e);
 
-	int largo = 50, alto = 50;
+	int largo = 200, alto = 100;
 
 	Vector posicion_camara(0, 0, 0);
 	Imagen imagen(&escena, largo, alto, posicion_camara);
 
-	guardar_render_a_png(imagen.dibujar(), largo, alto, "olmedo3.png");
+	guardar_render_a_png(imagen.dibujar(), largo, alto, "olmedo4.png");
 }
