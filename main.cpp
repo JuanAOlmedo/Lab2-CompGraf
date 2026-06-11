@@ -279,34 +279,32 @@ public:
 		   Color ambiente, Color difusa, Color especular)
 		: centro(centro), radio(radio), Objeto(reflejante, transparencia, ambiente, difusa, especular) {}
 
+	// Devuelve el menor t > 0 tal que p + tv está en el objeto.
 	float interseccion_mas_cercana(Vector p, Vector v) {
 		/*
 		(p + tv - centro) * (p + tv - centro) = radio ^ 2
 		p * p + p * tv - p * centro + p * tv + tv * tv - tv * centro - centro * p - centro * tv + centro * centro = radio ^ 2
 		p * p + t^2(v * v) + centro * centro + 2t(p * v) - 2(p * centro) - 2t(centro * v) = radio ^ 2;
-		(v * v)t^2 + (2(p * v) - 2(centro * v))t + p * p - centro * centro - 2(p * centro) - radio ^ 2 = 0;
+		(v * v)t^2 + (2(p * v) - 2(centro * v))t + p * p + centro * centro - 2(p * centro) - radio ^ 2 = 0;
 		*/
-
 		float c = p.get_norma_2() + centro.get_norma_2() - 2 * p.producto_interno(centro) - radio * radio,
 			  b = 2 * p.producto_interno(v) - 2 * centro.producto_interno(v),
 			  a = v.get_norma_2();
 
-		if (b * b - 4 * a * c < 0)
+		float det = b * b - 4 * a * c;
+		if (det < 0)
 			return -1; 
 
-		float t1 = (-b - sqrt(b * b - 4 * a * c)) / (2 * a),
-			  t2 = (-b + sqrt(b * b - 4 * a * c)) / (2 * a);
+		float t1 = (-b - sqrt(det)) / (2 * a),
+			  t2 = (-b + sqrt(det)) / (2 * a);
 
-		if (t1 < 0 && t2 < 0)
-			return -1;
-
-		if (t1 < 0)
-			return t2;
-
-		if (t2 < 0)
+		if (t1 > 1e-6)
 			return t1;
 
-		return min(t1, t2);
+		if (t2 > 1e-6)
+			return t2;
+
+		return -1;
 	}
 
 	Vector normal_en_punto(Vector p) {
@@ -403,29 +401,33 @@ public:
 class Rayo {
 private:
 	Vector punto_inicial, direccion;
+	Escena *escena;
 
-	Color sombra(Objeto *objeto, float t, Escena *escena, int profundidad) {
+	Color sombra(Objeto *objeto, float t, int profundidad) {
 		Vector punto = punto_inicial + t * direccion;
 		Vector normal = objeto->normal_en_punto(punto).normal();
+		//if (-normal.producto_interno(direccion) < 1e-3)
+	    //		return escena->color_fondo();
+
 		Color color = multiplicacion(objeto->luz_ambiente(), escena->luz_ambiente());
 
 		for (const auto &luz : escena->luces()) {
 			Vector direccion_a_luz = luz->get_posicion() - punto;
-			float producto = normal.producto_interno(direccion_a_luz);
+			float producto = normal.producto_interno(direccion_a_luz.normal());
 
 			if (producto > 0) {
-				color = suma(color, multiplicacion(multiplicacion(objeto->luz_difusa(), producto), luz->luz_difusa()));
-				color = suma(color, multiplicacion(multiplicacion(objeto->luz_especular(), luz->luz_especular()), producto * producto * producto));
+				color = suma(color, multiplicacion(multiplicacion(objeto->luz_difusa(), luz->luz_difusa()), producto));
+				//color = suma(color, multiplicacion(multiplicacion(objeto->luz_especular(), luz->luz_especular()), producto * producto * producto * producto * producto));
 			}
 		}
 
 		return color;
 	}
 public:
-	Rayo(Vector punto_inicial, Vector direccion)
-		: punto_inicial(punto_inicial), direccion(direccion) {}
+	Rayo(Vector punto_inicial, Vector direccion, Escena *escena)
+		: punto_inicial(punto_inicial), direccion(0.01*direccion.normal()), escena(escena) {}
 
-	Color color(Escena *escena, int profundidad) {
+	Color color(int profundidad) {
 		int distancia_minima = numeric_limits<float>::infinity();
 		Objeto *objeto_mas_cercano = nullptr;
 
@@ -439,7 +441,7 @@ public:
 		}
 
 		if (objeto_mas_cercano != nullptr) {
-			return sombra(objeto_mas_cercano, distancia_minima, escena, profundidad);
+			return sombra(objeto_mas_cercano, distancia_minima, profundidad);
 		} else {
 			return escena->color_fondo();
 		}
@@ -459,12 +461,15 @@ public:
 
 	// Dibuja la escena y devuelve los pixeles (el tamaño del vector es largo * alto)
 	vector<Color> dibujar() {
+		pixeles.clear();
+		pixeles.reserve(largo * alto);
+
 		for (int i = 0; i < alto; i++) {
 			for (int j = 0; j < largo; j++) {
 				Vector direccion((i - alto / 2.0) / alto , (j - largo / 2.0) / alto, 1);
 
-				Rayo r(posicion_camara, direccion);
-				pixeles.push_back(r.color(escena, 2));
+				Rayo r(posicion_camara, direccion, escena);
+				pixeles.push_back(r.color(2));
 			}
 		}
 
@@ -485,12 +490,12 @@ int main() {
 	Esfera e(posicion_esfera, 2, false, 1, color, color, {100, 100, 100});
 	escena.agregar(&e);
 
-	Vector posicion_luz(0, 2, 3);
+	Vector posicion_luz(0, 2, 2);
 	Color color_luz({255, 255, 255});
 	Luz l(posicion_luz, {200, 200, 200}, {100, 100, 100});
 	escena.agregar(&l);
 
-	int largo = 2000, alto = 1000;
+	int largo = 1000, alto = 500;
 
 	Vector posicion_camara(0, 0, 0);
 	Imagen imagen(&escena, largo, alto, posicion_camara);
