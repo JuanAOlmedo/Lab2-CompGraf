@@ -167,32 +167,39 @@ public:
 };
 
 struct Color {
-	unsigned char r, g, b;
+    float r, g, b;
+
+    Color operator*(const Color& other) const {
+        return {
+            std::min(r * other.r / 255.0f, 255.0f),
+            std::min(g * other.g / 255.0f, 255.0f),
+            std::min(b * other.b / 255.0f, 255.0f)
+        };
+    }
+
+    Color operator*(float x) const {
+        return {
+            std::min(r * x, 255.0f),
+            std::min(g * x, 255.0f),
+            std::min(b * x, 255.0f)
+        };
+    }
+
+    Color operator+(const Color& other) const {
+        return {
+            std::min(r + other.r, 255.0f),
+            std::min(g + other.g, 255.0f),
+            std::min(b + other.b, 255.0f)
+        };
+    }
+
+
+    void operator+=(const Color& other) {
+        r = std::min(r + other.r, 255.0f);
+        g = std::min(g + other.g, 255.0f);
+        b = std::min(b + other.b, 255.0f);
+    }
 };
-
-Color multiplicacion(Color c1, Color c2) {
-	return {
-        static_cast<unsigned char>(min(c1.r * c2.r / 255.0, 255.0)),
-        static_cast<unsigned char>(min(c1.g * c2.g / 255.0, 255.0)),
-        static_cast<unsigned char>(min(c1.b * c2.b / 255.0, 255.0))
-	};
-}
-
-Color multiplicacion(Color c1, float x) {
-	return {
-		static_cast<unsigned char>(min(c1.r * x, 255.0f)),
-		static_cast<unsigned char>(min(c1.g * x, 255.0f)),
-		static_cast<unsigned char>(min(c1.b * x, 255.0f))
-	};
-}
-
-Color suma(Color c1, Color c2) {
-	return {
-		static_cast<unsigned char>(min(c1.r + c2.r, 255)),
-		static_cast<unsigned char>(min(c1.g + c2.g, 255)),
-		static_cast<unsigned char>(min(c1.b + c2.b, 255))
-	};
-}
 
 void guardar_render_a_png(const std::vector<Color>& pixel_buffer, int ancho, int alto, const char* nombre_archivo) {
 	// 1. Inicializar la librería (obligatorio)
@@ -220,9 +227,9 @@ void guardar_render_a_png(const std::vector<Color>& pixel_buffer, int ancho, int
 			int indice_tu_buffer = (alto - 1 - y) * ancho + x;
 
 			// FreeImage espera los bytes en orden B-G-R
-			fila[x * 3 + 0] = pixel_buffer[indice_tu_buffer].b; // Blue
-			fila[x * 3 + 1] = pixel_buffer[indice_tu_buffer].g; // Green
-			fila[x * 3 + 2] = pixel_buffer[indice_tu_buffer].r; // Red
+			fila[x * 3 + 0] = static_cast<unsigned char>(pixel_buffer[indice_tu_buffer].b); // Blue
+			fila[x * 3 + 1] = static_cast<unsigned char>(pixel_buffer[indice_tu_buffer].g); // Green
+			fila[x * 3 + 2] = static_cast<unsigned char>(pixel_buffer[indice_tu_buffer].r); // Red
 		}
 	}
 
@@ -293,9 +300,9 @@ public:
 	}
 
 	// Devuelve el menor t > 0 tal que p + tv está en el objeto.
-	virtual float interseccion_mas_cercana(Vector p, Vector v) = 0;
+	virtual float interseccion_mas_cercana(const Vector &p, const Vector &v) = 0;
 	// Devuelve la normal del objeto en el punto p.
-	virtual Vector normal_en_punto(Vector p) = 0;
+	virtual Vector normal_en_punto(const Vector &p) = 0;
 };
 
 class Esfera : public Objeto {
@@ -308,7 +315,7 @@ public:
 		: centro(centro), radio(radio), Objeto(reflejante, transparencia, refraccion, ambiente, difusa, especular) {}
 
 	// Devuelve el menor t > 0 tal que p + tv está en el objeto.
-	float interseccion_mas_cercana(Vector p, Vector v) {
+	float interseccion_mas_cercana(const Vector &p, const Vector &v) override {
 		/*
 		(p + tv - centro) * (p + tv - centro) = radio ^ 2
 		p * p + p * tv - p * centro + p * tv + tv * tv - tv * centro - centro * p - centro * tv + centro * centro = radio ^ 2
@@ -326,16 +333,16 @@ public:
 		float t1 = (-b - sqrt(det)) / (2 * a),
 			  t2 = (-b + sqrt(det)) / (2 * a);
 
-		if (t1 > 1e-2)
+		if (t1 > 1e-6)
 			return t1 - 1;
 
-		if (t2 > 1e-2)
+		if (t2 > 1e-6)
 			return t2 - 1;
 
 		return -1;
 	}
 
-	Vector normal_en_punto(Vector p) {
+	Vector normal_en_punto(const Vector &p) override {
 		return (p - centro) / radio;
 	}
 };
@@ -349,8 +356,8 @@ public:
 	Color ambiente, Color difusa, Color especular) : punto_plano(punto), normal_plano(normal.normal()), 
           Objeto(reflejante, transparencia, 1, ambiente, difusa, especular) {}
 	
-	float interseccion_mas_cercana(Vector p, Vector v){
-		float denominador = v.producto_interno(normal_plano);
+	float interseccion_mas_cercana(const Vector &p, const Vector &v) override {
+		float denominador = v * normal_plano;
 
 		// Si el denominador es casi cero, el rayo es paralelo al plano
         if (std::abs(denominador) < 1e-6f) {
@@ -358,17 +365,16 @@ public:
         }
 
 		//fórmula: t = ((q - p) . n) / (v . n)
-        float t = (punto_plano - p).producto_interno(normal_plano) / denominador;
+        float t = ((punto_plano - p) * normal_plano) / denominador;
 
 		// Si t es positivo, la intersección ocurrió adelante de la cámara
-        if (t > 1e-6f) {
+        if (t > 1e-6f)
             return t;
-        }
 
         return -1.0f;
 	}
 
-	Vector normal_en_punto(Vector p) override {
+	Vector normal_en_punto(const Vector &p) override {
         // La normal de un plano es constante en toda su superficie
         return normal_plano;
     }
@@ -384,7 +390,8 @@ public:
 	Cilindro(Vector c, float r, float h, bool reflectante, float transparencia,float refraccion,
 			Color ambiente, Color difusa, Color especular)
 			: centro(c), radio(r), altura(h), Objeto(reflectante, transparencia, refraccion ,ambiente,difusa, especular){}
-	float interseccion_mas_cercana(Vector p, Vector v) override {
+	
+	float interseccion_mas_cercana(const Vector &p, const Vector &v) override {
 		float t_min = std::numeric_limits<float>::infinity();
 		bool hubo_interseccion = false;
 
@@ -448,7 +455,7 @@ public:
         return hubo_interseccion ? t_min : -1.0f;
 	}
 
-	Vector normal_en_punto(Vector p) override {
+	Vector normal_en_punto(const Vector &p) override {
         const float EPSILON = 0.001f;
 
         // 1. Tapa superior
@@ -467,24 +474,6 @@ public:
         return normal_lateral.normal();
     }
 };
-
-/*
-class Malla : public Objeto {
-public:
-	normal_en_punto(Vector	 p) {
-		// Calcular la normal usando los vértices de la malla
-		return Vector(0, 0, 1); // Placeholder, replace with actual normal calculation
-	}
-};
-
-class Superficie : public Objeto {
-public:
-	normal_en_punto(Vector p) {
-		// Calcular la normal usando la función de la superficie
-		return Vector(0, 0, 1); // Placeholder, replace with actual normal calculation
-	}
-};
-*/
 
 class Escena {
 private:
@@ -519,6 +508,25 @@ public:
 	Color luz_ambiente() {
 		return ambiente;
 	}
+
+	std::pair<Objeto *, float> objeto_mas_cercano(const Vector &punto_inicial, const Vector &direccion, const Objeto *evitado) {
+		float distancia_minima = numeric_limits<float>::infinity();
+		Objeto *mas_cercano = nullptr;
+
+		for (auto objeto : lista_objetos) {
+			if (objeto == evitado)
+				continue;
+
+			float distancia = objeto->interseccion_mas_cercana(punto_inicial, direccion);
+
+			if (distancia < distancia_minima && distancia > 0) {
+				mas_cercano = objeto;
+				distancia_minima = distancia;
+			}
+		}
+
+		return {mas_cercano, distancia_minima};
+	}
 };
 
 class Rayo {
@@ -530,36 +538,40 @@ private:
 	Color sombra(Objeto *objeto, float t, int profundidad) {
 		Vector punto = punto_inicial + t * direccion;
 		Vector normal = objeto->normal_en_punto(punto).normal();
-		//if (-normal.producto_interno(direccion) < 1e-3)
-	    //		return escena->color_fondo();
 
-		Color color = multiplicacion(objeto->luz_ambiente(), escena->luz_ambiente());
+		Color color = objeto->luz_ambiente() * escena->luz_ambiente();
 
 		for (const auto &luz : escena->luces()) {
-			Vector direccion_a_luz = (luz->get_posicion() - punto).normal();
-			float producto = normal * direccion_a_luz;
+			Vector direccion_a_luz = luz->get_posicion() - punto;
+			float distancia = direccion_a_luz.get_norma();
+			direccion_a_luz = direccion_a_luz.normal();
 
-			if (producto > 0) {
+			float producto = normal * direccion_a_luz;
+			bool luz_tapada = escena->objeto_mas_cercano(punto, direccion_a_luz, evitado).second < distancia;
+
+			if (producto > 0 && !luz_tapada) {
 				// Calcular luz difusa
-				color = suma(color, multiplicacion(multiplicacion(objeto->luz_difusa(), luz->luz_difusa()), producto));
+				color += objeto->luz_difusa() * luz->luz_difusa() * producto;
 
 				// Calcular luz especular
 				Vector h = (direccion_a_luz - direccion.normal()).normal();
-				float producto_especular = powf(normal * h, 100.0f);
+				float producto_especular = powf(normal * h, 64.0f);
 
-				color = suma(color, multiplicacion(multiplicacion(objeto->luz_especular(), luz->luz_especular()), producto_especular));
+				color += objeto->luz_especular() * luz->luz_especular() * producto_especular;
 			}
 
 			if (profundidad > 0) {
 				if (objeto->get_reflejante()) {
 					Rayo r(punto, direccion.reflexion(normal), escena);
 
-					r.evitar(objeto);
+					// Evitar que r interseque el mismo objeto
+					if (adentro != objeto)
+						r.evitar(objeto);
+					// r va a estar sí o sí adentro del mismo objeto que yo
 					if (adentro != nullptr)
 						r.adentro_de(adentro);
 
-					Color color_reflexion = multiplicacion(objeto->luz_especular(), r.color(profundidad - 1));
-					color = suma(color, multiplicacion(color_reflexion, 0.4));
+					color += objeto->luz_especular() * r.color(profundidad - 1) * 0.4;
 				}
 
 				if (objeto->get_transparencia() < 1) {
@@ -567,19 +579,18 @@ private:
 						  nabla2 = objeto == adentro ? 1 : objeto->get_refraccion(),
 						  theta1 = direccion.angulo(-normal);
 
+					// No calcular nada si hay refracción interna total
 					if (nabla1 <= nabla2 || theta1 <= std::asin(nabla2 / nabla1)) {
 						float theta2 = std::asin(std::sin(theta1) * nabla1 / nabla2);
-						Vector direccion_refraccion(direccion.cambiar_angulo(-normal, theta2));
-						Rayo r(punto + 1.00001* direccion, direccion_refraccion, escena);
+
+						Rayo r(punto, direccion.cambiar_angulo(-normal, theta2), escena);
 
 						if (objeto == adentro)
-							r.evitar(objeto);
+							r.evitar(objeto); // Estamos saliendo del objeto, hacer que r lo evite
 						else
-							r.adentro_de(objeto);
+							r.adentro_de(objeto); // Estamos entrando al objeto
 
-
-						//Color color_refraccion = multiplicacion(objeto->luz_difusa(), r.color(profundidad - 1));
-						color = suma(color, r.color(profundidad - 1));
+						color += objeto->luz_difusa() * r.color(profundidad - 1);
 					}
 
 				}
@@ -588,9 +599,10 @@ private:
 
 		return color;
 	}
+
 public:
 	Rayo(Vector punto_inicial, Vector direccion, Escena *escena)
-		: punto_inicial(punto_inicial), direccion(0.01 * direccion.normal()),
+		: punto_inicial(punto_inicial), direccion(direccion.normal()),
 		  escena(escena), evitado(nullptr), adentro(nullptr) {}
 
 	// Especifica un objeto a evitar al calcular intersecciones.
@@ -598,39 +610,18 @@ public:
 		evitado = o;
 	}
 
-	// Especifica adentro de qué objeto se está. Si se está adentro de un objeto o,
-	// no se va a evitar aunque se llame a evitar(o).
+	// Especifica adentro de qué objeto se está.
 	void adentro_de(Objeto *o) {
 		adentro = o;
 	}
 
 	Color color(int profundidad) {
-		int distancia_minima = numeric_limits<float>::infinity();
-		Objeto *objeto_mas_cercano = nullptr;
+		auto mas_cercano = escena->objeto_mas_cercano(punto_inicial, direccion, evitado);
 
-		for (auto objeto : escena->objetos()) {
-			if (objeto == evitado && objeto != adentro)
-				continue;
-
-			float distancia = objeto->interseccion_mas_cercana(punto_inicial, direccion);
-
-			/*if (objeto == adentro && distancia < 1 / direccion.get_norma()) {
-				float distancia2 = objeto->interseccion_mas_cercana(punto_inicial + 2 * distancia * direccion, direccion);
-				if (distancia2 > 0)
-					distancia = distancia2 + 1.1 * distancia;
-			}*/
-
-			if (distancia < distancia_minima && distancia > 0) {
-				objeto_mas_cercano = objeto;
-				distancia_minima = distancia;
-			}
-		}
-
-		if (objeto_mas_cercano != nullptr) {
-			return sombra(objeto_mas_cercano, distancia_minima, profundidad);
-		} else {
+		if (mas_cercano.first != nullptr)
+			return sombra(mas_cercano.first, mas_cercano.second, profundidad);
+		else
 			return escena->color_fondo();
-		}
 	}
 };
 
@@ -652,10 +643,10 @@ public:
 
 		for (int i = 0; i < alto; i++) {
 			for (int j = 0; j < largo; j++) {
-				Vector direccion((i - alto / 2.0) / alto , (j - largo / 2.0) / alto, 1);
+				Vector direccion((i - alto / 2.0) / alto, (j - largo / 2.0) / alto, 1);
 
 				Rayo r(posicion_camara, direccion, escena);
-				pixeles.push_back(r.color(4));
+				pixeles.push_back(r.color(2));
 			}
 		}
 
@@ -671,26 +662,23 @@ int main() {
 	Color luz_ambiente({50, 50, 50});
 	Escena escena(color_ambiente, luz_ambiente);
 
-	Vector posicion_esfera(0, -1, 7);
+	Vector posicion_esfera(-1, 1, 8);
 	Color color({255, 0, 0});
 	Esfera e(posicion_esfera, 1, false, 1, 1, color, color, {100, 100, 100});
 	escena.agregar(&e);
 
-	Vector posicion_esfera2(-1, 1, 8);
+	Vector posicion_esfera2(1, -2, 9);
 	Color gris({150, 150, 150});
-	Esfera e2(posicion_esfera2, 0.5, true, 1, 1, gris, gris, {255, 255, 255});
+	Esfera e2(posicion_esfera2, 1, true, 1, 1, gris, gris, {255, 255, 255});
 	escena.agregar(&e2);
 
-	Vector posicion_esfera3(0, 0, 5);
-	Esfera e3(posicion_esfera3, 1, false, 0, 2, gris, gris, {255, 255, 255});
+	Vector posicion_esfera3(0, 0.3, 6);
+	Esfera e3(posicion_esfera3, 1.2, false, 0, 2, gris, gris, {255, 255, 255});
 	escena.agregar(&e3);
-	
-	// --- AGREGANDO EL CILINDRO VERDE ---
-    // Ubicación: X = 2.0 (derecha), Y = -3.0 (apoyado en el piso), Z = 6.5
-    // Dimensiones: Radio = 0.6, Altura = 2.5
-    Vector posicion_cilindro(2.0f, -3.0f, 6.5f);
+
+    Vector posicion_cilindro(1, 0, 6);
     Color color_verde({0, 255, 0}); // Verde puro
-    Cilindro cilindro(posicion_cilindro, 0.6f, 2.5f, false, 1, 1, color_verde, color_verde, {100, 100, 100});
+    Cilindro cilindro(posicion_cilindro, 1, 2.5f, false, 1, 1, color_verde, color_verde, {100, 100, 100});
     escena.agregar(&cilindro);
 
 	// --- AGREGANDO PAREDES, TECHO Y PISO ---
@@ -699,29 +687,32 @@ int main() {
     Color color_pared_der({0, 0, 255});  
 
     // 1. Piso (Ubicado abajo en Y = -3, normal mira hacia arriba [0, 1, 0])
-    Plano piso(Vector(0, -3, 0), Vector(0, 1, 0), false, 1, color_gris, color_gris, {50, 50, 50});
+    Plano piso(Vector(0, -4, 0), Vector(0, 1, 0), false, 1, color_gris, color_gris, {50, 50, 50});
     escena.agregar(&piso);
 
     // 2. Techo (Ubicado arriba en Y = 3, normal mira hacia abajo [0, -1, 0])
-    Plano techo(Vector(0, 3, 0), Vector(0, -1, 0), false, 1, color_gris, color_gris, {50, 50, 50});
+    Plano techo(Vector(0, 4, 0), Vector(0, -1, 0), false, 1, color_gris, color_gris, {50, 50, 50});
     escena.agregar(&techo);
 
     // 3. Pared Izquierda (Ubicada en X = -4, normal mira hacia la derecha [1, 0, 0])
-    Plano pared_izq(Vector(-4, 0, 0), Vector(1, 0, 0), false, 1, color_gris, color_gris, {50, 50, 50});
+    Plano pared_izq(Vector(-3, 0, 0), Vector(1, 0, 0), false, 1, color_gris, color_gris, {50, 50, 50});
     escena.agregar(&pared_izq);
 
     // 4. Pared Derecha (Ubicada en X = 4, normal mira hacia la izquierda [-1, 0, 0])
-    Plano pared_der(Vector(4, 0, 0), Vector(-1, 0, 0), false, 1, color_gris, color_gris, {50, 50, 50});
+    Plano pared_der(Vector(3, 0, 0), Vector(-1, 0, 0), false, 1, color_gris, color_gris, {50, 50, 50});
     escena.agregar(&pared_der);
 
     // 5. Pared del Fondo (Ubicada atrás de la esfera en Z = 12, normal mira hacia la cámara [0, 0, -1])
     Plano fondo(Vector(0, 0, 12), Vector(0, 0, -1), false, 1, color_gris, color_gris, {50, 50, 50});
     escena.agregar(&fondo);
 
-	Vector posicion_luz(0, 2, 2);
-	Color color_luz({255, 255, 255});
-	Luz l(posicion_luz, {200, 200, 200}, {100, 100, 100});
+	Vector posicion_luz(0, 3, 0);
+	Luz l(posicion_luz, {110, 110, 110}, {80, 80, 80});
 	escena.agregar(&l);
+
+	Vector posicion_luz2(0, -3, 0);
+	Luz l2(posicion_luz2, {110, 110, 110}, {80, 80, 80});
+	escena.agregar(&l2);
 
 	int largo = 2000, alto = 1000;
 
