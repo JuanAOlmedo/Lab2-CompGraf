@@ -449,7 +449,8 @@ private:
 				}
 
 				if (objeto->get_transparencia() < 1) {
-
+					float nabla1 = adentro == nullptr ? 1 : adentro->get_refraccion(),
+						  nabla2 = objeto == adentro ? 1 : objeto->get_refraccion();
 				}
 			}
 		}
