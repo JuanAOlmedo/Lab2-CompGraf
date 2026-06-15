@@ -132,6 +132,25 @@ public:
 	    return std::acos(c);
 	}
 
+	Vector cambiar_angulo(const Vector& n, float theta) const {
+	    // Componente de direccion perpendicular a normal, dentro del plano
+	    Vector proj = (n * *this) * n;
+	    Vector perp = *this - proj;
+
+	    float norma_perp = perp.get_norma();
+	    if (norma_perp < 1e-9) {
+	        // direccion es paralelo (o antiparalelo) a normal: el plano no está
+	        // determinado, elegimos un perpendicular arbitrario
+	        Vector ref = (std::abs(n.get_x()) < 0.9) ? Vector(1,0,0) : Vector(0,1,0);
+	        perp = n.producto_vectorial(ref);
+	    	norma_perp = perp.get_norma();
+	    }
+	    perp = perp / norma_perp;
+
+	    // Nueva direccion unitaria a ángulo theta de normal, en el mismo plano
+	    return n * std::cos(theta) + perp * std::sin(theta);
+	}
+
 	Vector reflexion(const Vector& w) const {
 		auto w_normalizado = w.normal();
 
@@ -484,7 +503,24 @@ private:
 
 				if (objeto->get_transparencia() < 1) {
 					float nabla1 = adentro == nullptr ? 1 : adentro->get_refraccion(),
-						  nabla2 = objeto == adentro ? 1 : objeto->get_refraccion();
+						  nabla2 = objeto == adentro ? 1 : objeto->get_refraccion(),
+						  theta1 = direccion.angulo(-normal);
+
+					if (nabla1 <= nabla2 || theta1 <= std::asin(nabla2 / nabla1)) {
+						float theta2 = std::asin(std::sin(theta1) * nabla1 / nabla2);
+						Vector direccion_refraccion(direccion.cambiar_angulo(-normal, theta2));
+						Rayo r(punto + 1.00001* direccion, direccion_refraccion, escena);
+
+						if (objeto == adentro)
+							r.evitar(objeto);
+						else
+							r.adentro_de(objeto);
+
+
+						//Color color_refraccion = multiplicacion(objeto->luz_difusa(), r.color(profundidad - 1));
+						color = suma(color, r.color(profundidad - 1));
+					}
+
 				}
 			}
 		}
@@ -493,7 +529,7 @@ private:
 	}
 public:
 	Rayo(Vector punto_inicial, Vector direccion, Escena *escena)
-		: punto_inicial(punto_inicial), direccion(0.01*direccion.normal()),
+		: punto_inicial(punto_inicial), direccion(0.01 * direccion.normal()),
 		  escena(escena), evitado(nullptr), adentro(nullptr) {}
 
 	// Especifica un objeto a evitar al calcular intersecciones.
@@ -516,6 +552,12 @@ public:
 				continue;
 
 			float distancia = objeto->interseccion_mas_cercana(punto_inicial, direccion);
+
+			/*if (objeto == adentro && distancia < 1 / direccion.get_norma()) {
+				float distancia2 = objeto->interseccion_mas_cercana(punto_inicial + 2 * distancia * direccion, direccion);
+				if (distancia2 > 0)
+					distancia = distancia2 + 1.1 * distancia;
+			}*/
 
 			if (distancia < distancia_minima && distancia > 0) {
 				objeto_mas_cercano = objeto;
@@ -568,15 +610,19 @@ int main() {
 	Color luz_ambiente({50, 50, 50});
 	Escena escena(color_ambiente, luz_ambiente);
 
-	Vector posicion_esfera(0, -1, 6);
+	Vector posicion_esfera(0, -1, 7);
 	Color color({255, 0, 0});
 	Esfera e(posicion_esfera, 1, false, 1, 1, color, color, {100, 100, 100});
 	escena.agregar(&e);
 
-	Vector posicion_esfera2(-1, 1, 7);
+	Vector posicion_esfera2(-1, 1, 8);
 	Color gris({150, 150, 150});
 	Esfera e2(posicion_esfera2, 0.5, true, 1, 1, gris, gris, {255, 255, 255});
 	escena.agregar(&e2);
+
+	Vector posicion_esfera3(0, 0, 5);
+	Esfera e3(posicion_esfera3, 1, false, 0, 2, gris, gris, {255, 255, 255});
+	escena.agregar(&e3);
 
 	// --- AGREGANDO PAREDES, TECHO Y PISO ---
     Color color_gris({150, 150, 150});
