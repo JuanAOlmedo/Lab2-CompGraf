@@ -321,6 +321,40 @@ public:
 	}
 };
 
+class Plano : public Objeto{
+private:
+	Vector punto_plano;
+	Vector normal_plano;
+public:
+	Plano(Vector punto, Vector normal, bool reflejante, bool transparencia,
+	Color ambiente, Color difusa, Color especular) : punto_plano(punto), normal_plano(normal.normal()), 
+          Objeto(reflejante, transparencia, 1, ambiente, difusa, especular) {}
+	
+	float interseccion_mas_cercana(Vector p, Vector v){
+		float denominador = v.producto_interno(normal_plano);
+
+		// Si el denominador es casi cero, el rayo es paralelo al plano
+        if (std::abs(denominador) < 1e-6f) {
+            return -1.0f;
+        }
+
+		//fórmula: t = ((q - p) . n) / (v . n)
+        float t = (punto_plano - p).producto_interno(normal_plano) / denominador;
+
+		// Si t es positivo, la intersección ocurrió adelante de la cámara
+        if (t > 1e-6f) {
+            return t;
+        }
+
+        return -1.0f;
+	}
+
+	Vector normal_en_punto(Vector p) override {
+        // La normal de un plano es constante en toda su superficie
+        return normal_plano;
+    }
+};
+
 /*
 class Cilindro : public Objeto {
 private:
@@ -534,18 +568,44 @@ int main() {
 	Color luz_ambiente({50, 50, 50});
 	Escena escena(color_ambiente, luz_ambiente);
 
-	Vector posicion_esfera(0, 0, 8);
-	Color rojo({255, 0, 0});
-	Esfera e(posicion_esfera, 2, true, 1, 0, rojo, rojo, {255, 255, 255});
+	Vector posicion_esfera(0, -1, 6);
+	Color color({255, 0, 0});
+	Esfera e(posicion_esfera, 1, false, 1, 1, color, color, {100, 100, 100});
 	escena.agregar(&e);
 
-	Vector posicion_esfera2(-2, 3, 7);
+	Vector posicion_esfera2(-1, 1, 7);
 	Color gris({150, 150, 150});
-	Esfera e2(posicion_esfera2, 1.5, true, 1, 0, gris, gris, {255, 255, 255});
+	Esfera e2(posicion_esfera2, 0.5, true, 1, 1, gris, gris, {255, 255, 255});
 	escena.agregar(&e2);
 
-	Vector posicion_luz(-3, 2, 2);
-	Luz l(posicion_luz, {200, 200, 200}, {200, 200, 200});
+	// --- AGREGANDO PAREDES, TECHO Y PISO ---
+    Color color_gris({150, 150, 150});
+    Color color_pared_izq({0, 255, 0});  
+    Color color_pared_der({0, 0, 255});  
+
+    // 1. Piso (Ubicado abajo en Y = -3, normal mira hacia arriba [0, 1, 0])
+    Plano piso(Vector(0, -3, 0), Vector(0, 1, 0), false, 1, color_gris, color_gris, {50, 50, 50});
+    escena.agregar(&piso);
+
+    // 2. Techo (Ubicado arriba en Y = 3, normal mira hacia abajo [0, -1, 0])
+    Plano techo(Vector(0, 3, 0), Vector(0, -1, 0), false, 1, color_gris, color_gris, {50, 50, 50});
+    escena.agregar(&techo);
+
+    // 3. Pared Izquierda (Ubicada en X = -4, normal mira hacia la derecha [1, 0, 0])
+    Plano pared_izq(Vector(-4, 0, 0), Vector(1, 0, 0), false, 1, color_gris, color_gris, {50, 50, 50});
+    escena.agregar(&pared_izq);
+
+    // 4. Pared Derecha (Ubicada en X = 4, normal mira hacia la izquierda [-1, 0, 0])
+    Plano pared_der(Vector(4, 0, 0), Vector(-1, 0, 0), false, 1, color_gris, color_gris, {50, 50, 50});
+    escena.agregar(&pared_der);
+
+    // 5. Pared del Fondo (Ubicada atrás de la esfera en Z = 12, normal mira hacia la cámara [0, 0, -1])
+    Plano fondo(Vector(0, 0, 12), Vector(0, 0, -1), false, 1, color_gris, color_gris, {50, 50, 50});
+    escena.agregar(&fondo);
+
+	Vector posicion_luz(0, 2, 2);
+	Color color_luz({255, 255, 255});
+	Luz l(posicion_luz, {200, 200, 200}, {100, 100, 100});
 	escena.agregar(&l);
 
 	int largo = 2000, alto = 1000;
