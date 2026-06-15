@@ -58,7 +58,7 @@ public:
 			y * a,
 			z * a
 		);
-	}
+	}	
 
 	float operator*(const Vector& w) const {
 		return x * w.x + y * w.y + z * w.z;
@@ -355,39 +355,100 @@ public:
     }
 };
 
-/*
+
 class Cilindro : public Objeto {
 private:
-	Vector centro; // Centro de la base inferior del cilindro
+	Vector centro;
 	float radio;
-	float altura;  // Altura total del cilindro
-
+	float altura;
 public:
-	Cilindro(Vector c, float r, float h) : centro(c), radio(r), altura(h) {}
+	Cilindro(Vector c, float r, float h, bool reflectante, float transparencia,
+			Color ambiente, Color difusa, Color especular)
+			: centro(c), radio(r), altura(h), Objeto(reflectante, transparencia,ambiente,difusa, especular){}
+	float interseccion_mas_cercana(Vector p, Vector v) override {
+		float t_min = std::numeric_limits<float>::infinity();
+		bool hubo_interseccion = false;
 
-	Vector normal_en_punto(Vector p) {
-		// Un margen de error pequeño para las comparaciones de punto flotante
-		const float EPSILON = 0.0001f;
+		// --- 1. INTERSECCIÓN CON EL CUERPO LATERAL ---
+        float a = v.get_x() * v.get_x() + v.get_z() * v.get_z();
+        float b = 2.0f * ((p.get_x() - centro.get_x()) * v.get_x() + (p.get_z() - centro.get_z()) * v.get_z());
+        float c = (p.get_x() - centro.get_x()) * (p.get_x() - centro.get_x()) + 
+                  (p.get_z() - centro.get_z()) * (p.get_z() - centro.get_z()) - radio * radio;
 
-		// 1. Verificar si el punto está en la tapa superior
-		// La altura en Y de la tapa superior es: centro.y + altura
-		if (p.y >= (centro.y + altura) - EPSILON) {
-			return Vector(0.0f, 1.0f, 0.0f); // Normal hacia arriba
-		}
+        float det = b * b - 4.0f * a * c;
 
-		// 2. Verificar si el punto está en la tapa inferior
-		// La altura en Y de la tapa inferior es: centro.y
-		if (p.y <= centro.y + EPSILON) {
-			return Vector(0.0f, -1.0f, 0.0f); // Normal hacia abajo
-		}
+        if (det >= 0.0f) {
+            float t1 = (-b - std::sqrt(det)) / (2.0f * a);
+            float t2 = (-b + std::sqrt(det)) / (2.0f * a);
 
-		// 3. Si no está en las tapas, está en el cuerpo lateral
-		Vector de_centro_a_p = p - centro;
-		de_centro_a_p.y = 0.0f; // Ignoramos la altura para la pared lateral
+            // Revisamos ambas soluciones de la cuadrática
+            for (float t : {t1, t2}) {
+                if (t > 1e-4f && t < t_min) {
+                    // Calculamos la altura Y del punto de impacto
+                    float y_impacto = p.get_y() + t * v.get_y();
+                    // Validamos si cae dentro de la altura del cilindro
+                    if (y_impacto >= centro.get_y() && y_impacto <= centro.get_y() + altura) {
+                        t_min = t;
+                        hubo_interseccion = true;
+                    }
+                }
+            }
+        }
 
-		return de_centro_a_p / radio; // Vector normalizado hacia afuera
+        // --- 2. INTERSECCIÓN CON LAS TAPAS (PLANOS LIMITADOS) ---
+        // Tapa Inferior (Plano en Y = centro.y)
+        if (std::abs(v.get_y()) > 1e-6f) {
+            float t_inf = (centro.get_y() - p.get_y()) / v.get_y();
+            if (t_inf > 1e-4f && t_inf < t_min) {
+                float x_impacto = p.get_x() + t_inf * v.get_x();
+                float z_impacto = p.get_z() + t_inf * v.get_z();
+                // Verificamos si el punto cae dentro del círculo de la tapa
+                float dist_2 = (x_impacto - centro.get_x()) * (x_impacto - centro.get_x()) +
+                               (z_impacto - centro.get_z()) * (z_impacto - centro.get_z());
+                if (dist_2 <= radio * radio) {
+                    t_min = t_inf;
+                    hubo_interseccion = true;
+                }
+            }
+
+            // Tapa Superior (Plano en Y = centro.y + altura)
+            float t_sup = ((centro.get_y() + altura) - p.get_y()) / v.get_y();
+            if (t_sup > 1e-4f && t_sup < t_min) {
+                float x_impacto = p.get_x() + t_sup * v.get_x();
+                float z_impacto = p.get_z() + t_sup * v.get_z();
+                // Verificamos si el punto cae dentro del círculo de la tapa
+                float dist_2 = (x_impacto - centro.get_x()) * (x_impacto - centro.get_x()) +
+                               (z_impacto - centro.get_z()) * (z_impacto - centro.get_z());
+                if (dist_2 <= radio * radio) {
+                    t_min = t_sup;
+                    hubo_interseccion = true;
+                }
+            }
+        }
+
+        return hubo_interseccion ? t_min : -1.0f;
 	}
+
+	Vector normal_en_punto(Vector p) override {
+        const float EPSILON = 0.001f;
+
+        // 1. Tapa superior
+        if (p.get_y() >= (centro.get_y() + altura) - EPSILON) {
+            return Vector(0.0f, 1.0f, 0.0f);
+        }
+        // 2. Tapa inferior
+        if (p.get_y() <= centro.get_y() + EPSILON) {
+            return Vector(0.0f, -1.0f, 0.0f);
+        }
+
+        // 3. Cuerpo lateral (proyectamos la normal hacia afuera en X y Z)
+        Vector de_centro_a_p = p - centro;
+        Vector normal_lateral(de_centro_a_p.get_x(), 0.0f, de_centro_a_p.get_z());
+
+        return normal_lateral.normal();
+    }
 };
+
 /*
 class Malla : public Objeto {
 public:
