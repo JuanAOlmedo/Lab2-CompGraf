@@ -362,9 +362,9 @@ private:
 	float radio;
 	float altura;
 public:
-	Cilindro(Vector c, float r, float h, bool reflectante, float transparencia,
+	Cilindro(Vector c, float r, float h, bool reflectante, float transparencia,float refraccion,
 			Color ambiente, Color difusa, Color especular)
-			: centro(c), radio(r), altura(h), Objeto(reflectante, transparencia,ambiente,difusa, especular){}
+			: centro(c), radio(r), altura(h), Objeto(reflectante, transparencia, refraccion ,ambiente,difusa, especular){}
 	float interseccion_mas_cercana(Vector p, Vector v) override {
 		float t_min = std::numeric_limits<float>::infinity();
 		bool hubo_interseccion = false;
@@ -638,6 +638,14 @@ int main() {
 	Color gris({150, 150, 150});
 	Esfera e2(posicion_esfera2, 0.5, true, 1, 1, gris, gris, {255, 255, 255});
 	escena.agregar(&e2);
+
+	// --- AGREGANDO EL CILINDRO VERDE ---
+    // Ubicación: X = 2.0 (derecha), Y = -3.0 (apoyado en el piso), Z = 6.5
+    // Dimensiones: Radio = 0.6, Altura = 2.5
+    Vector posicion_cilindro(2.0f, -3.0f, 6.5f);
+    Color color_verde({0, 255, 0}); // Verde puro
+    Cilindro cilindro(posicion_cilindro, 0.6f, 2.5f, false, 1, 1, color_verde, color_verde, {100, 100, 100});
+    escena.agregar(&cilindro);
 
 	// --- AGREGANDO PAREDES, TECHO Y PISO ---
     Color color_gris({150, 150, 150});
