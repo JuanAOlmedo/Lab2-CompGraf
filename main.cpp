@@ -757,14 +757,10 @@ public:
 
 		for (int i = 0; i < alto; i++) {
 			for (int j = 0; j < largo; j++) {
-<<<<<<< HEAD
 				Vector direccion =
 					direccion_vista
 					+ direccion_barrido * (j - largo / 2.0) / alto
-					+ up * (i - alto / 2.0) / alto;
-=======
-				Vector direccion((j - largo / 2.0) / alto, (alto / 2.0 - i) / alto, 1);
->>>>>>> 964264a96c7e3f16be6fbe684dff00b76b370e94
+					+ up * (alto / 2.0 - i) / alto;
 
 				Rayo r(posicion_camara, direccion.normal(), escena);
 				pixeles.push_back(r.color(3));
@@ -904,10 +900,7 @@ int main() {
     escena.agregar(&l2);
 
     int largo = 1000, alto = 1000;
-    Vector posicion_camara(0, 0, 0);
-    Imagen imagen(&escena, largo, alto, posicion_camara);
 
-<<<<<<< HEAD
 	Vector posicion_camara(0, 0, 0);
 	Vector direccion_vista(0, 0, 1);
 	Vector up(0, 1, 0);
@@ -915,7 +908,4 @@ int main() {
 
 	imagen.dibujar();
 	imagen.guardar("foto.png");
-=======
-    guardar_render_a_png(imagen.dibujar(), largo, alto, "foto.png");
->>>>>>> 964264a96c7e3f16be6fbe684dff00b76b370e94
 }
