@@ -1,0 +1,176 @@
+{
+	"color_fondo": [0, 0, 0],
+	"luz_ambiente": [50, 50, 50],
+	"luces": [
+		{
+			"posicion": [0, 3, 7],
+			"difusa": [110, 110, 110],
+			"especular": [80, 80, 80]
+		},
+		{
+			"posicion": [0, 3, 9],
+			"difusa": [110, 110, 110],
+			"especular": [80, 80, 80]
+		}
+	],
+	"objetos": {
+		"esferas": [
+			{
+				"posicion": [1.5, -0.5, 10],
+				"radio": 0.5,
+				"espejado": true,
+				"transparencia": 1,
+				"refraccion": 1,
+				"luz": {
+					"difusa": [150, 150, 150],
+					"ambiente": [150, 150, 150],
+					"especular": [255, 255, 255]
+				}
+			},
+			{
+				"posicion": [-0.5, -0.1, 9],
+				"radio": 0.9,
+				"espejado": false,
+				"transparencia": 0.1,
+				"refraccion": 2,
+				"luz": {
+					"difusa": [150, 100, 100],
+					"ambiente": [150, 100, 100],
+					"especular": [255, 255, 255]
+				}
+			}
+		],
+		"cilindros": [
+			{
+				"posicion": [0, -1, 9],
+				"radio": 0.5,
+				"altura": 1,
+				"espejado": false,
+				"transparencia": 1,
+				"refraccion": 1,
+				"luz": {
+					"difusa": [0, 255, 0],
+					"ambiente": [0, 255, 0],
+					"especular": [150, 150, 150]
+				}
+			}
+		],
+		"planos": [
+			{
+					"punto": [0, -4, 0],
+					"normal": [0, 1, 0],
+					"espejado": false,
+					"transparencia": 1,
+					"refraccion": 1,
+					"luz": {
+						"difusa": [150, 150, 150],
+						"ambiente": [150, 150, 150],
+						"especular": [100, 100, 100]
+					}
+			},
+			{
+					"punto": [0, 4, 0],
+					"normal": [0, -1, 0],
+					"espejado": false,
+					"transparencia": 1,
+					"refraccion": 1,
+					"luz": {
+						"difusa": [150, 150, 150],
+						"ambiente": [150, 150, 150],
+						"especular": [100, 100, 100]
+					}
+			},
+			{
+					"punto": [-4, 0, 0],
+					"normal": [1, 0, 0],
+					"espejado": false,
+					"transparencia": 1,
+					"refraccion": 1,
+					"luz": {
+						"difusa": [150, 150, 150],
+						"ambiente": [150, 150, 150],
+						"especular": [100, 100, 100]
+					}
+			},
+			{
+					"punto": [4, 0, 0],
+					"normal": [-1, 0, 0],
+					"espejado": false,
+					"transparencia": 1,
+					"refraccion": 1,
+					"luz": {
+						"difusa": [150, 150, 150],
+						"ambiente": [150, 150, 150],
+						"especular": [100, 100, 100]
+					}
+			},
+			{
+					"punto": [0, 0, 14],
+					"normal": [0, 0, -1],
+					"espejado": false,
+					"transparencia": 1,
+					"refraccion": 1,
+					"luz": {
+						"difusa": [150, 150, 150],
+						"ambiente": [150, 150, 150],
+						"especular": [100, 100, 100]
+					}
+			}
+		],
+		"mallas": [
+			{
+				"vertices": [
+			        [-2.5, -1.0,  7.5],
+			        [2.5, -1.0,  7.5],
+			        [2.5, -1.0, 11.5],
+			        [-2.5, -1.0, 11.5],
+			        [-2.5, -1.2,  7.5],
+			        [2.5, -1.2,  7.5],
+			        [2.5, -1.2, 11.5],
+			        [-2.5, -1.2, 11.5],
+			        [-2.3, -4.0, 7.7],
+			        [-2.0, -4.0, 7.7],
+			        [-2.0, -4.0, 8.0],
+			        [-2.3, -4.0, 8.0],
+			        [-2.3, -1.2, 7.7],
+			        [-2.0, -1.2, 7.7],
+			        [-2.0, -1.2, 8.0],
+			        [-2.3, -1.2, 8.0],
+			        [2.0, -4.0, 7.7],
+			        [2.3, -4.0, 7.7],
+			        [2.3, -4.0, 8.0],
+			        [2.0, -4.0, 8.0],
+			        [2.0, -1.2, 7.7],
+			        [2.3, -1.2, 7.7],
+			        [2.3, -1.2, 8.0],
+			        [2.0, -1.2, 8.0]
+					
+				],
+				"caras": [
+					[0, 1, 2, 3],
+					[4, 5, 6, 7],
+					[0, 1, 5, 4],
+					[2, 3, 7, 6],
+					[0, 3, 7, 4],
+					[1, 2, 6, 5],
+        			[8, 9, 13, 12],
+        			[9, 10, 14, 13],
+        			[10, 11, 15, 14],
+        			[11, 8, 12, 15],
+        			[16, 17, 21, 20],
+        			[17, 18, 22, 21],
+        			[18, 19, 23, 22],
+        			[19, 16, 20, 23]
+				],
+				"espejado": false,
+				"transparencia": 1,
+				"refraccion": 1,
+				"luz": {
+					"difusa": [130, 70, 20],
+					"ambiente": [130, 70, 20],
+					"especular": [100, 100, 100]
+				}
+			}
+		]
+	}
+}

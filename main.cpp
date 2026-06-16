@@ -6,30 +6,21 @@
 #include <cassert>
 #include <limits>
 #include <FreeImage.h>
+#include <nlohmann/json.hpp>
+#include <fstream>
 
 using namespace std;
+using namespace nlohmann::json_abi_v3_12_0;
 
 class Vector {
-private:
-	float x, y, z;
 public:
+	float x, y, z;
+
 	Vector()
 		: x(0), y(0), z(0) {}
 
 	Vector(float x, float y, float z)
 		: x(x), y(y), z(z) {}
-
-	float get_x() const {
-		return x;
-	}
-
-	float get_y() const {
-		return y;
-	}
-
-	float get_z() const {
-		return z;
-	}
 
 	Vector operator+(const Vector& w) const {
 		return Vector(
@@ -145,7 +136,7 @@ public:
 	    if (norma_perp < 1e-9) {
 	        // direccion es paralelo (o antiparalelo) a normal: el plano no está
 	        // determinado, elegimos un perpendicular arbitrario
-	        Vector ref = (std::abs(n.get_x()) < 0.9) ? Vector(1,0,0) : Vector(0,1,0);
+	        Vector ref = (std::abs(n.x) < 0.9) ? Vector(1,0,0) : Vector(0,1,0);
 	        perp = n.producto_vectorial(ref);
 	    	norma_perp = perp.get_norma();
 	    }
@@ -169,6 +160,20 @@ public:
 	    return os << "(" << v.x << ", " << v.y << ", " << v.z << ")";
 	}
 };
+
+void from_json(const json& j, Vector& vector) {
+    if (!j.is_array() || j.size() != 3) {
+        throw json::type_error::create(
+            302,
+            "Los vectores son arreglos de tres elementos",
+            &j
+        );
+    }
+
+    vector.x = j.at(0).get<float>();
+    vector.y = j.at(1).get<float>();
+    vector.z = j.at(2).get<float>();
+}
 
 struct Color {
     float r, g, b;
@@ -222,6 +227,20 @@ struct Color {
     }
 };
 
+void from_json(const json& j, Color& color) {
+    if (!j.is_array() || j.size() != 3) {
+        throw json::type_error::create(
+            302,
+            "Los colores son arreglos de tres elementos",
+            &j
+        );
+    }
+
+    color.r = j.at(0).get<float>();
+    color.g = j.at(1).get<float>();
+    color.b = j.at(2).get<float>();
+}
+
 class Luz {
 private:
 	Vector posicion;
@@ -229,6 +248,12 @@ private:
 public:
 	Luz(Vector posicion, Color difusa, Color especular)
 		: posicion(posicion), difusa(difusa), especular(especular) {}
+
+	Luz(const json& j) {
+		posicion = j["posicion"].get<Vector>();
+		difusa = j["difusa"].get<Color>();
+		especular = j["especular"].get<Color>();
+	}
 
 	Vector get_posicion() const {
 		return posicion;
@@ -252,6 +277,15 @@ public:
 	Objeto(bool reflejante, float transparencia, float refraccion, Color ambiente, Color difusa, Color especular)
 		: reflejante(reflejante), transparencia(transparencia), refraccion(refraccion),
 		  ambiente(ambiente), difusa(difusa), especular(especular) {}
+
+	Objeto(const json& j) {
+		reflejante = j["espejado"].get<bool>();
+		transparencia = j["transparencia"].get<float>();
+		refraccion = j["refraccion"].get<float>();
+		ambiente = j["luz"]["ambiente"].get<Color>();
+		difusa = j["luz"]["difusa"].get<Color>();
+		especular = j["luz"]["especular"].get<Color>();
+	}
 
 	// Devuelven si el objeto es reflejante y su transparencia
 	bool get_reflejante() const {
@@ -294,6 +328,11 @@ public:
 	Esfera(Vector centro, float radio, bool reflejante, float transparencia, float refraccion,
 		   Color ambiente, Color difusa, Color especular)
 		: centro(centro), radio(radio), Objeto(reflejante, transparencia, refraccion, ambiente, difusa, especular) {}
+
+	Esfera(const json& j) : Objeto(j) {
+		centro = j["posicion"].get<Vector>();
+		radio = j["radio"].get<float>();
+	}
 
 	// Devuelve el menor t > 0 tal que p + tv está en el objeto.
 	float interseccion_mas_cercana(const Vector &p, const Vector &v) const override {
@@ -340,6 +379,11 @@ public:
 	Color ambiente, Color difusa, Color especular) : punto_plano(punto), normal_plano(normal.normal()), 
           Objeto(reflejante, transparencia, 1, ambiente, difusa, especular) {}
 	
+	Plano(const json& j) : Objeto(j) {
+		punto_plano = j["punto"].get<Vector>();
+		normal_plano = j["normal"].get<Vector>();
+	}
+
 	float interseccion_mas_cercana(const Vector &p, const Vector &v) const override {
 		float denominador = v * normal_plano;
 
@@ -374,15 +418,21 @@ public:
 			Color ambiente, Color difusa, Color especular)
 			: centro(c), radio(r), altura(h), Objeto(reflectante, transparencia, refraccion ,ambiente,difusa, especular){}
 	
+	Cilindro(const json& j) : Objeto(j) {
+		centro = j["posicion"].get<Vector>();
+		radio = j["radio"].get<float>();
+		altura = j["altura"].get<float>();
+	}
+
 	float interseccion_mas_cercana(const Vector &p, const Vector &v) const override {
 		float t_min = std::numeric_limits<float>::infinity();
 		bool hubo_interseccion = false;
 
 		// --- 1. INTERSECCIÓN CON EL CUERPO LATERAL ---
-        float a = v.get_x() * v.get_x() + v.get_z() * v.get_z();
-        float b = 2.0f * ((p.get_x() - centro.get_x()) * v.get_x() + (p.get_z() - centro.get_z()) * v.get_z());
-        float c = (p.get_x() - centro.get_x()) * (p.get_x() - centro.get_x()) + 
-                  (p.get_z() - centro.get_z()) * (p.get_z() - centro.get_z()) - radio * radio;
+        float a = v.x * v.x + v.z * v.z;
+        float b = 2.0f * ((p.x - centro.x) * v.x + (p.z - centro.z) * v.z);
+        float c = (p.x - centro.x) * (p.x - centro.x) + 
+                  (p.z - centro.z) * (p.z - centro.z) - radio * radio;
 
         float det = b * b - 4.0f * a * c;
 
@@ -394,9 +444,9 @@ public:
             for (float t : {t1, t2}) {
                 if (t > 1e-4f && t < t_min) {
                     // Calculamos la altura Y del punto de impacto
-                    float y_impacto = p.get_y() + t * v.get_y();
+                    float y_impacto = p.y + t * v.y;
                     // Validamos si cae dentro de la altura del cilindro
-                    if (y_impacto >= centro.get_y() && y_impacto <= centro.get_y() + altura) {
+                    if (y_impacto >= centro.y && y_impacto <= centro.y + altura) {
                         t_min = t;
                         hubo_interseccion = true;
                     }
@@ -406,14 +456,14 @@ public:
 
         // --- 2. INTERSECCIÓN CON LAS TAPAS (PLANOS LIMITADOS) ---
         // Tapa Inferior (Plano en Y = centro.y)
-        if (std::abs(v.get_y()) > 1e-6f) {
-            float t_inf = (centro.get_y() - p.get_y()) / v.get_y();
+        if (std::abs(v.y) > 1e-6f) {
+            float t_inf = (centro.y - p.y) / v.y;
             if (t_inf > 1e-4f && t_inf < t_min) {
-                float x_impacto = p.get_x() + t_inf * v.get_x();
-                float z_impacto = p.get_z() + t_inf * v.get_z();
+                float x_impacto = p.x + t_inf * v.x;
+                float z_impacto = p.z + t_inf * v.z;
                 // Verificamos si el punto cae dentro del círculo de la tapa
-                float dist_2 = (x_impacto - centro.get_x()) * (x_impacto - centro.get_x()) +
-                               (z_impacto - centro.get_z()) * (z_impacto - centro.get_z());
+                float dist_2 = (x_impacto - centro.x) * (x_impacto - centro.x) +
+                               (z_impacto - centro.z) * (z_impacto - centro.z);
                 if (dist_2 <= radio * radio) {
                     t_min = t_inf;
                     hubo_interseccion = true;
@@ -421,13 +471,13 @@ public:
             }
 
             // Tapa Superior (Plano en Y = centro.y + altura)
-            float t_sup = ((centro.get_y() + altura) - p.get_y()) / v.get_y();
+            float t_sup = ((centro.y + altura) - p.y) / v.y;
             if (t_sup > 1e-4f && t_sup < t_min) {
-                float x_impacto = p.get_x() + t_sup * v.get_x();
-                float z_impacto = p.get_z() + t_sup * v.get_z();
+                float x_impacto = p.x + t_sup * v.x;
+                float z_impacto = p.z + t_sup * v.z;
                 // Verificamos si el punto cae dentro del círculo de la tapa
-                float dist_2 = (x_impacto - centro.get_x()) * (x_impacto - centro.get_x()) +
-                               (z_impacto - centro.get_z()) * (z_impacto - centro.get_z());
+                float dist_2 = (x_impacto - centro.x) * (x_impacto - centro.x) +
+                               (z_impacto - centro.z) * (z_impacto - centro.z);
                 if (dist_2 <= radio * radio) {
                     t_min = t_sup;
                     hubo_interseccion = true;
@@ -444,17 +494,17 @@ public:
         const float EPSILON = 0.001f;
 
         // 1. Tapa superior
-        if (p.get_y() >= (centro.get_y() + altura) - EPSILON) {
+        if (p.y >= (centro.y + altura) - EPSILON) {
             return Vector(0.0f, 1.0f, 0.0f);
         }
         // 2. Tapa inferior
-        if (p.get_y() <= centro.get_y() + EPSILON) {
+        if (p.y <= centro.y + EPSILON) {
             return Vector(0.0f, -1.0f, 0.0f);
         }
 
         // 3. Cuerpo lateral (proyectamos la normal hacia afuera en X y Z)
         Vector de_centro_a_p = p - centro;
-        Vector normal_lateral(de_centro_a_p.get_x(), 0.0f, de_centro_a_p.get_z());
+        Vector normal_lateral(de_centro_a_p.x, 0.0f, de_centro_a_p.z);
 
         return normal_lateral.normal();
     }
@@ -463,6 +513,21 @@ public:
 struct CuadrilateroData {
     int v0, v1, v2, v3; // Los 4 índices de los vértices en sentido horario o antihorario
 };
+
+void from_json(const json& j, CuadrilateroData& c) {
+    if (!j.is_array() || j.size() != 4) {
+        throw json::type_error::create(
+            302,
+            "Los cuadriláteros son arreglos de cuatro elementos",
+            &j
+        );
+    }
+
+    c.v0 = j.at(0).get<float>();
+    c.v1 = j.at(1).get<float>();
+    c.v2 = j.at(2).get<float>();
+    c.v3 = j.at(3).get<float>();
+}
 
 class MallaCuadrilateros : public Objeto {
 private:
@@ -503,7 +568,11 @@ public:
         : vertices(vertices), caras(caras), normal_ultimo_impacto(0,1,0),
           Objeto(reflejante, transparencia, refraccion, ambiente, difusa, especular) {}
 
-    // Ahora SÍ coincide exactamente con la firma de Objeto
+	MallaCuadrilateros(const json& j) : Objeto(j) {
+		vertices = j["vertices"].get<vector<Vector>>();
+		caras = j["caras"].get<vector<CuadrilateroData>>();
+	}
+
     float interseccion_mas_cercana(const Vector &p, const Vector &v) const override {
         float t_min = std::numeric_limits<float>::infinity();
         bool hubo_impacto = false;
@@ -547,7 +616,39 @@ private:
 public:
 	Escena(Color color_fondo, Color luz_ambiente)
 		: color(color_fondo), ambiente(luz_ambiente) {};
-	Escena(string archivo);
+		
+	Escena(string nombre_archivo) {
+	    ifstream archivo(nombre_archivo);
+	    json j = json::parse(archivo);
+
+	    color = j["color_fondo"].get<Color>();
+	    ambiente = j["luz_ambiente"].get<Color>();
+
+	    for (const auto& esfera : j["objetos"]["esferas"]) {
+	    	Objeto *o = new Esfera(esfera);
+	    	lista_objetos.push_back(o);
+	    }
+
+	    for (const auto& cilindro : j["objetos"]["cilindros"]) {
+	    	Objeto *o = new Cilindro(cilindro);
+	    	lista_objetos.push_back(o);
+	    }
+
+	    for (const auto& plano : j["objetos"]["planos"]) {
+	    	Objeto *o = new Plano(plano);
+	    	lista_objetos.push_back(o);
+	    }
+
+	    for (const auto& malla : j["objetos"]["mallas"]) {
+	    	Objeto *o = new MallaCuadrilateros(malla);
+	    	lista_objetos.push_back(o);
+	    }
+
+	    for (const auto& luz : j["luces"]) {
+	    	Luz *l = new Luz(luz);
+	    	lista_luces.push_back(l);
+	    }
+	}
 
 	void agregar(const Objeto *o) {
 		lista_objetos.push_back(o);
@@ -805,99 +906,7 @@ public:
 };
 
 int main() {
-    Color color_ambiente({0, 0, 0});
-    Color luz_ambiente({50, 50, 50});
-    Escena escena(color_ambiente, luz_ambiente);
-
-    // El piso está en Y = -4. El tablero de la mesa va a estar en Y = -1.0.
-    // Los objetos se apoyan sobre el tablero (Y = -1.0).
-
-    // 1. Esfera Gris Metalizada (Der)
-    Vector posicion_esfera2(1.5f, -0.5f, 10.0f); // Base: -0.5 - 0.5 = -1.0
-    Color gris({150, 150, 150});
-    Esfera e2(posicion_esfera2, 0.5f, true, 1.0f, 1.0f, gris, gris, {255, 255, 255});
-    escena.agregar(&e2);
-
-    // 2. Esfera Rosada Transparente (Izq)
-    Vector posicion_esfera3(-0.5f, -0.1f, 9.0f); // Base: -0.1 - 0.9 = -1.0
-    Color rosado({150, 100, 100});
-    Esfera e3(posicion_esfera3, 0.9f, false, 0.1f, 2.0f, rosado, rosado, {255, 255, 255});
-    escena.agregar(&e3);
-
-    // 3. Cilindro Verde (Centro)
-    Vector posicion_cilindro(0.0f, -1.0f, 9.0f); // Arranca en Y = -1.0 y sube 1 unidad de altura
-    Color color_verde({0, 255, 0});
-    Cilindro cilindro(posicion_cilindro, 0.5f, 1.0f, false, 1.0f, 1.0f, color_verde, color_verde, {100, 100, 100});
-    escena.agregar(&cilindro);
-
-    // --- CONSTRUCCIÓN DE LA MESA EN EL ESPACIO REAL ---
-    std::vector<Vector> v_mesa = {
-        // Tablero Superior (Y = -1.0) al Inferior (Y = -1.2)
-        Vector(-2.5f, -1.0f,  7.5f),  // 0
-        Vector( 2.5f, -1.0f,  7.5f),  // 1
-        Vector( 2.5f, -1.0f, 11.5f),  // 2
-        Vector(-2.5f, -1.0f, 11.5f),  // 3
-        Vector(-2.5f, -1.2f,  7.5f),  // 4
-        Vector( 2.5f, -1.2f,  7.5f),  // 5
-        Vector( 2.5f, -1.2f, 11.5f),  // 6
-        Vector(-2.5f, -1.2f, 11.5f),  // 7
-
-        // Pata Delantera Izquierda (De Y = -4.0 a Y = -1.2)
-        Vector(-2.3f, -4.0f,  7.7f),  // 8
-        Vector(-2.0f, -4.0f,  7.7f),  // 9
-        Vector(-2.0f, -4.0f,  8.0f),  // 10
-        Vector(-2.3f, -4.0f,  8.0f),  // 11
-        Vector(-2.3f, -1.2f,  7.7f),  // 12
-        Vector(-2.0f, -1.2f,  7.7f),  // 13
-        Vector(-2.0f, -1.2f,  8.0f),  // 14
-        Vector(-2.3f, -1.2f,  8.0f),  // 15
-
-        // Pata Delantera Derecha (De Y = -4.0 a Y = -1.2)
-        Vector( 2.0f, -4.0f,  7.7f),  // 16
-        Vector( 2.3f, -4.0f,  7.7f),  // 17
-        Vector( 2.3f, -4.0f,  8.0f),  // 18
-        Vector( 2.0f, -4.0f,  8.0f),  // 19
-        Vector( 2.0f, -1.2f,  7.7f),  // 20
-        Vector( 2.3f, -1.2f,  7.7f),  // 21
-        Vector( 2.3f, -1.2f,  8.0f),  // 22  <-- Arreglado el -8.0f que estaba acá!
-        Vector( 2.0f, -1.2f,  8.0f)   // 23
-    };
-
-    std::vector<CuadrilateroData> c_mesa = {
-        {0, 1, 2, 3}, {4, 5, 6, 7}, {0, 1, 5, 4}, {2, 3, 7, 6}, {0, 3, 7, 4}, {1, 2, 6, 5}, // Tablero
-        {8,  9,  13, 12}, {9,  10, 14, 13}, {10, 11, 15, 14}, {11, 8,  12, 15},               // Pata Izq
-        {16, 17, 21, 20}, {17, 18, 22, 21}, {18, 19, 23, 22}, {19, 16, 20, 23}                // Pata Der
-    };
-
-    Color color_madera({130, 70, 20});
-    MallaCuadrilateros mesa(v_mesa, c_mesa, false, 1.0f, 1.0f, color_madera, color_madera, {50, 50, 50});
-    escena.agregar(&mesa);
-
-    // --- ENTORNO ---
-    Color color_gris({150, 150, 150});
-    Plano piso(Vector(0, -4, 0), Vector(0, 1, 0), false, 1, color_gris, color_gris, {50, 50, 50});
-    escena.agregar(&piso);
-
-    Plano techo(Vector(0, 4, 0), Vector(0, -1, 0), false, 1, color_gris, color_gris, {50, 50, 50});
-    escena.agregar(&techo);
-
-    Plano pared_izq(Vector(-4, 0, 0), Vector(1, 0, 0), false, 1, color_gris, color_gris, {50, 50, 50});
-    escena.agregar(&pared_izq);
-
-    Plano pared_der(Vector(4, 0, 0), Vector(-1, 0, 0), false, 1, color_gris, color_gris, {50, 50, 50});
-    escena.agregar(&pared_der);
-
-    Plano fondo(Vector(0, 0, 14), Vector(0, 0, -1), false, 1, color_gris, color_gris, {50, 50, 50});
-    escena.agregar(&fondo);
-
-    // Cambié la posición de las luces a Y = 3.0 para que iluminen desde el techo real
-    Vector posicion_luz(0, 3, 7);
-    Luz l(posicion_luz, {110, 110, 110}, {80, 80, 80});
-    escena.agregar(&l);
-
-    Vector posicion_luz2(0, 3, 9);
-    Luz l2(posicion_luz2, {110, 110, 110}, {80, 80, 80});
-    escena.agregar(&l2);
+	Escena escena("escena.json");
 
     int largo = 1000, alto = 1000;
 
