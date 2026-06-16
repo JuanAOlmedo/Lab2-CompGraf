@@ -204,9 +204,9 @@ struct Color {
     }
 
     void operator*=(const Color& other) {
-        r = std::min(r * other.r, 255.0f);
-        g = std::min(g * other.g, 255.0f);
-        b = std::min(b * other.b, 255.0f);
+        r = std::min(r * other.r / 255.0f, 255.0f);
+        g = std::min(g * other.g / 255.0f, 255.0f);
+        b = std::min(b * other.b / 255.0f, 255.0f);
     }
 
     void operator+=(const Color& other) {
@@ -557,16 +557,7 @@ private:
 				if (objeto->get_transparencia() == 1)
 					return {0, 0, 0};
 
-				/*float recorrido = recorrido_en_objeto(objeto, distancia),
-					  recorrido_truncado = std::min(recorrido, distancia_maxima - distancia),*/
-				float factor = 1 / (2 * objeto->get_transparencia());
-
-				/*if (recorrido_truncado > 0)
-					factor /= recorrido_truncado;
-				else
-					factor /= distancia;*/
-
-				color *= objeto->luz_difusa() * factor;
+				color *= objeto->luz_difusa() * (1 / (5 * objeto->get_transparencia()));
 			}
 		}
 
@@ -772,7 +763,7 @@ int main() {
     escena.agregar(&techo);
 
     // 3. Pared Izquierda (Ubicada en X = -4, normal mira hacia la derecha [1, 0, 0])
-    Plano pared_izq(Vector(-4, 0, 0), Vector(1, 0, 0), false, 1, {100, 0, 0}, {200, 0, 0}, {50, 50, 50});
+    Plano pared_izq(Vector(-4, 0, 0), Vector(1, 0, 0), false, 1, color_gris, color_gris, {50, 50, 50});
     escena.agregar(&pared_izq);
 
     // 4. Pared Derecha (Ubicada en X = 4, normal mira hacia la izquierda [-1, 0, 0])
@@ -791,7 +782,7 @@ int main() {
 	Luz l2(posicion_luz2, {110, 110, 110}, {80, 80, 80});
 	escena.agregar(&l2);
 
-	int largo = 2000, alto = 2000;
+	int largo = 1000, alto = 1000;
 
 	Vector posicion_camara(0, 0, 0);
 	Imagen imagen(&escena, largo, alto, posicion_camara);
