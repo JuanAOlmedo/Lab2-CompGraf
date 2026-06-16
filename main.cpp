@@ -806,7 +806,7 @@ public:
 
 int main() {
     Color color_ambiente({0, 0, 0});
-    Color luz_ambiente({50, 50, 50});
+    Color luz_ambiente({60, 60, 60});
     Escena escena(color_ambiente, luz_ambiente);
 
     // El piso está en Y = -4. El tablero de la mesa va a estar en Y = -1.0.
@@ -869,7 +869,7 @@ int main() {
         {16, 17, 21, 20}, {17, 18, 22, 21}, {18, 19, 23, 22}, {19, 16, 20, 23}                // Pata Der
     };
 
-    Color color_madera({130, 70, 20});
+    Color color_madera({255, 255, 255});
     MallaCuadrilateros mesa(v_mesa, c_mesa, false, 1.0f, 1.0f, color_madera, color_madera, {50, 50, 50});
     escena.agregar(&mesa);
 
@@ -891,14 +891,13 @@ int main() {
     escena.agregar(&fondo);
 
     // Cambié la posición de las luces a Y = 3.0 para que iluminen desde el techo real
-    Vector posicion_luz(0, 3, 7);
-    Luz l(posicion_luz, {110, 110, 110}, {80, 80, 80});
+    Vector posicion_luz(-1.5f, 3.5f, 8.5f); 
+    Luz l(posicion_luz, {230, 230, 230}, {80, 80, 80});
     escena.agregar(&l);
 
-    Vector posicion_luz2(0, 3, 9);
-    Luz l2(posicion_luz2, {110, 110, 110}, {80, 80, 80});
+    Vector posicion_luz2(1.5f, 3.5f, 8.5f);
+    Luz l2(posicion_luz2, {230, 230, 230}, {80, 80, 80});
     escena.agregar(&l2);
-
     int largo = 1000, alto = 1000;
 
 	Vector posicion_camara(0, 0, 0);
