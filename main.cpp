@@ -13,6 +13,9 @@ class Vector {
 private:
 	float x, y, z;
 public:
+	Vector()
+		: x(0), y(0), z(0) {}
+
 	Vector(float x, float y, float z)
 		: x(x), y(y), z(z) {}
 
@@ -133,6 +136,7 @@ public:
 	}
 
 	Vector cambiar_angulo(const Vector& n, float theta) const {
+		// n tiene que tener norma 1
 	    // Componente de direccion perpendicular a normal, dentro del plano
 	    Vector proj = (n * *this) * n;
 	    Vector perp = *this - proj;
@@ -197,6 +201,12 @@ struct Color {
         r = std::min(r * x, 255.0f);
         g = std::min(g * x, 255.0f);
         b = std::min(b * x, 255.0f);
+    }
+
+    void operator*=(const Color& other) {
+        r = std::min(r * other.r, 255.0f);
+        g = std::min(g * other.g, 255.0f);
+        b = std::min(b * other.b, 255.0f);
     }
 
     void operator+=(const Color& other) {
@@ -342,14 +352,17 @@ public:
 		if (det < 0)
 			return -1; 
 
-		float t1 = (-b - sqrt(det)) / (2 * a),
-			  t2 = (-b + sqrt(det)) / (2 * a);
+		det = sqrt(det);
+
+		float t1 = (-b - det) / (2 * a);
 
 		if (t1 > 1e-6)
-			return t1 - 1;
+			return t1;
+
+		float t2 = (-b + det) / (2 * a);
 
 		if (t2 > 1e-6)
-			return t2 - 1;
+			return t2;
 
 		return -1;
 	}
@@ -488,71 +501,50 @@ public:
 
 class Escena {
 private:
-	vector<Objeto *> lista_objetos;
-	vector<Luz *> lista_luces;
+	vector<const Objeto *> lista_objetos;
+	vector<const Luz *> lista_luces;
 	Color color, ambiente;
 public:
 	Escena(Color color_fondo, Color luz_ambiente)
 		: color(color_fondo), ambiente(luz_ambiente) {};
 	Escena(string archivo);
 
-	void agregar(Objeto *o) {
+	void agregar(const Objeto *o) {
 		lista_objetos.push_back(o);
 	}
 
-	void agregar(Luz *l) {
+	void agregar(const Luz *l) {
 		lista_luces.push_back(l);
 	}
 
-	const vector<Objeto *> &objetos() {
+	const vector<const Objeto *> &objetos() const {
 		return lista_objetos;
 	}
 
-	const vector<Luz *> &luces() {
+	const vector<const Luz *> &luces() const {
 		return lista_luces;
 	}
 
-	Color color_fondo() {
+	Color color_fondo() const {
 		return color;
 	}
 
-	Color luz_ambiente() {
+	Color luz_ambiente() const {
 		return ambiente;
-	}
-
-	std::pair<Objeto *, float> objeto_mas_cercano(const Vector &punto_inicial, const Vector &direccion, const Objeto *evitado) {
-		float distancia_minima = numeric_limits<float>::infinity();
-		Objeto *mas_cercano = nullptr;
-
-		for (auto objeto : lista_objetos) {
-			if (objeto == evitado)
-				continue;
-
-			float distancia = objeto->interseccion_mas_cercana(punto_inicial, direccion);
-
-			if (distancia < distancia_minima && distancia > 0) {
-				mas_cercano = objeto;
-				distancia_minima = distancia;
-			}
-		}
-
-		return {mas_cercano, distancia_minima};
 	}
 };
 
 class Rayo {
 private:
-	Vector punto_inicial, direccion;
-	Escena *escena;
-	const Objeto *evitado, *adentro;
+	const float INDICE_REFRACCION_AIRE = 1;
+	const float COEFICIENTE_ESPECULAR = 100;
 
-	// Devuelve la distancia recorrida dentro del objeto. El objeto está a la distancia
-	// especificada
-	float recorrido_en_objeto(const Objeto *objeto, float distancia) {
-		return objeto->interseccion_mas_cercana(punto_inicial + 1.1 * distancia * direccion, direccion);
-	}
+	const Vector punto_inicial, direccion;
+	const Escena *escena;
+	const Objeto *evitado; // No queremos calcular intersecciones con este objeto
+	const Objeto *adentro; // Estamos adentro de este objeto
 
-	Color oclusion(float distancia_maxima) {
+	Color oclusion(float distancia_maxima) const {
 		Color color({255, 255, 255});
 
 		for (const auto objeto : escena->objetos()) {
@@ -565,18 +557,25 @@ private:
 				if (objeto->get_transparencia() == 1)
 					return {0, 0, 0};
 
-				float recorrido = recorrido_en_objeto(objeto, distancia),
-					  recorrido_truncado = std::min(recorrido, distancia_maxima - distancia);
-				color -= objeto->luz_difusa() * (10 * recorrido_truncado * objeto->get_transparencia());
+				/*float recorrido = recorrido_en_objeto(objeto, distancia),
+					  recorrido_truncado = std::min(recorrido, distancia_maxima - distancia),*/
+				float factor = 1 / (2 * objeto->get_transparencia());
+
+				/*if (recorrido_truncado > 0)
+					factor /= recorrido_truncado;
+				else
+					factor /= distancia;*/
+
+				color *= objeto->luz_difusa() * factor;
 			}
 		}
 
 		return color;
 	}
 
-	Color sombra(const Objeto *objeto, float t, int profundidad) {
-		Vector punto = punto_inicial + t * direccion;
-		Vector normal = objeto->normal_en_punto(punto).normal();
+	Color sombra(const Objeto *objeto, float d, int profundidad) const {
+		Vector punto = punto_inicial + d * direccion;
+		Vector normal = objeto->normal_en_punto(punto);
 
 		Color color = objeto->luz_ambiente() * escena->luz_ambiente();
 
@@ -587,15 +586,16 @@ private:
 
 			float producto = normal * direccion_a_luz;
 			Rayo l(punto, direccion_a_luz, escena);
+			l.evitar(objeto);
 			Color oclusion_luz = l.oclusion(distancia_luz);
 
 			if (producto > 0) {
 				// Calcular luz difusa
-				color += oclusion_luz * objeto->luz_difusa() * luz->luz_difusa() * producto * objeto->get_transparencia();
+				color += oclusion_luz * objeto->luz_difusa() * luz->luz_difusa() * producto;
 
 				// Calcular luz especular
-				Vector h = (direccion_a_luz - direccion.normal()).normal();
-				float producto_especular = powf(normal * h, 100.0f);
+				Vector h = (direccion_a_luz - direccion).normal();
+				float producto_especular = powf(normal * h, COEFICIENTE_ESPECULAR);
 
 				color += oclusion_luz * objeto->luz_especular() * luz->luz_especular() * producto_especular;
 			}
@@ -615,15 +615,36 @@ private:
 				}
 
 				if (objeto->get_transparencia() < 1) {
-					float nabla1 = adentro == nullptr ? 1 : adentro->get_refraccion(),
-						  nabla2 = objeto == adentro ? 1 : objeto->get_refraccion(),
-						  theta1 = direccion.angulo(-normal);
+					Vector normal_efectiva;
+					float nabla1, nabla2;
+
+					// Si no estamos adentro de ningún objeto, el primer índice de refracción
+					// es el del aire. Si no, es el del objeto en el que estamos.
+					if (adentro == nullptr)
+						nabla1 = INDICE_REFRACCION_AIRE;
+					else
+						nabla1 = adentro->get_refraccion();
+
+					if (objeto == adentro) {
+						// Si estamos adentro del objeto que intersecamos, el segundo índice de
+						// refracción es el aire.
+						nabla2 = INDICE_REFRACCION_AIRE;
+						normal_efectiva = normal;
+					} else {
+						// Si no, el segundo índice de refracción es el del objeto intersecado.
+						nabla2 = objeto->get_refraccion();
+						// La normal está apuntando en dirección opuesta a la dirección de entrada,
+						// invertirla
+						normal_efectiva = -normal;
+					}
+
+					float theta1 = normal_efectiva.angulo(direccion);
 
 					// No calcular nada si hay refracción interna total
 					if (nabla1 <= nabla2 || theta1 <= std::asin(nabla2 / nabla1)) {
 						float theta2 = std::asin(std::sin(theta1) * nabla1 / nabla2);
 
-						Rayo t(punto, direccion.cambiar_angulo(-normal, theta2), escena);
+						Rayo t(punto + direccion * 0.0001, direccion.cambiar_angulo(normal_efectiva, theta2), escena);
 
 						if (objeto == adentro)
 							t.evitar(objeto); // Estamos saliendo del objeto, hacer que t lo evite
@@ -632,7 +653,6 @@ private:
 
 						color += objeto->luz_difusa() * t.color(profundidad - 1);
 					}
-
 				}
 			}
 		}
@@ -640,9 +660,30 @@ private:
 		return color;
 	}
 
+	// Devuelve el objeto más cercano al rayo y la distancia a él.
+	// Si no interseca ningún objeto, devuelve {nullptr, infinity}.
+	std::pair<const Objeto *, float> objeto_mas_cercano() const {
+		float distancia_minima = numeric_limits<float>::infinity();
+		const Objeto *mas_cercano = nullptr;
+
+		for (auto objeto : escena->objetos()) {
+			if (objeto == evitado && objeto != adentro)
+				continue;
+
+			float distancia = objeto->interseccion_mas_cercana(punto_inicial, direccion);
+
+			if (distancia < distancia_minima && distancia > 0) {
+				mas_cercano = objeto;
+				distancia_minima = distancia;
+			}
+		}
+
+		return {mas_cercano, distancia_minima};
+	}
+
 public:
-	Rayo(Vector punto_inicial, Vector direccion, Escena *escena)
-		: punto_inicial(punto_inicial), direccion(direccion.normal()),
+	Rayo(const Vector punto_inicial, const Vector direccion, const Escena *escena)
+		: punto_inicial(punto_inicial), direccion(direccion),
 		  escena(escena), evitado(nullptr), adentro(nullptr) {}
 
 	// Especifica un objeto a evitar al calcular intersecciones.
@@ -655,8 +696,8 @@ public:
 		adentro = o;
 	}
 
-	Color color(int profundidad) {
-		auto mas_cercano = escena->objeto_mas_cercano(punto_inicial, direccion, evitado == adentro ? nullptr : evitado);
+	Color color(int profundidad) const {
+		auto mas_cercano = objeto_mas_cercano();
 
 		if (mas_cercano.first != nullptr)
 			return sombra(mas_cercano.first, mas_cercano.second, profundidad);
@@ -685,8 +726,8 @@ public:
 			for (int j = 0; j < largo; j++) {
 				Vector direccion((j - largo / 2.0) / alto, (i - alto / 2.0) / alto, 1);
 
-				Rayo r(posicion_camara, direccion, escena);
-				pixeles.push_back(r.color(2));
+				Rayo r(posicion_camara, direccion.normal(), escena);
+				pixeles.push_back(r.color(4));
 			}
 		}
 
@@ -702,17 +743,17 @@ int main() {
 	Color luz_ambiente({50, 50, 50});
 	Escena escena(color_ambiente, luz_ambiente);
 
-	Vector posicion_esfera2(2, 0.5, 7);
+	Vector posicion_esfera2(1.5, 0.5, 10);
 	Color gris({150, 150, 150});
 	Esfera e2(posicion_esfera2, 0.5, true, 1, 1, gris, gris, {255, 255, 255});
 	escena.agregar(&e2);
 
-	Vector posicion_esfera3(-0.5, 0.2, 6);
+	Vector posicion_esfera3(-0.5, 0.1, 9);
 	Color rosado({150, 100, 100});
-	Esfera e3(posicion_esfera3, 0.8, false, 0.6, 2, rosado, rosado, {255, 255, 255});
+	Esfera e3(posicion_esfera3, 0.9, false, 0.1, 2, rosado, rosado, {255, 255, 255});
 	escena.agregar(&e3);
 
-    Vector posicion_cilindro(0, 0, 6);
+    Vector posicion_cilindro(0, 0, 9);
     Color color_verde({0, 255, 0}); // Verde puro
     Cilindro cilindro(posicion_cilindro, 0.5, 1, false, 1, 1, color_verde, color_verde, {100, 100, 100});
     escena.agregar(&cilindro);
@@ -739,18 +780,18 @@ int main() {
     escena.agregar(&pared_der);
 
     // 5. Pared del Fondo (Ubicada atrás de la esfera en Z = 12, normal mira hacia la cámara [0, 0, -1])
-    Plano fondo(Vector(0, 0, 12), Vector(0, 0, -1), false, 1, color_gris, color_gris, {50, 50, 50});
+    Plano fondo(Vector(0, 0, 14), Vector(0, 0, -1), false, 1, color_gris, color_gris, {50, 50, 50});
     escena.agregar(&fondo);
 
-	Vector posicion_luz(0, 3, 0);
-	Luz l(posicion_luz, {100, 100, 100}, {70, 70, 70});
+	Vector posicion_luz(0, -3, 7);
+	Luz l(posicion_luz, {110, 110, 110}, {80, 80, 80});
 	escena.agregar(&l);
 
-	Vector posicion_luz2(0, -3, 0);
-	Luz l2(posicion_luz2, {100, 100, 100}, {70, 70, 70});
+	Vector posicion_luz2(0, -3, 9);
+	Luz l2(posicion_luz2, {110, 110, 110}, {80, 80, 80});
 	escena.agregar(&l2);
 
-	int largo = 1500, alto = 1500;
+	int largo = 2000, alto = 2000;
 
 	Vector posicion_camara(0, 0, 0);
 	Imagen imagen(&escena, largo, alto, posicion_camara);
