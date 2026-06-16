@@ -222,47 +222,6 @@ struct Color {
     }
 };
 
-void guardar_render_a_png(const std::vector<Color>& pixel_buffer, int ancho, int alto, const char* nombre_archivo) {
-	// 1. Inicializar la librería (obligatorio)
-	FreeImage_Initialise();
-
-	// 2. Crear el mapa de bits en FreeImage. 
-	// Ojo: FreeImage por defecto usa el orden BGR/BGRA de 24 o 32 bits.
-	FIBITMAP* imagen = FreeImage_Allocate(ancho, alto, 24); // 24 bits = 3 bytes por píxel (RGB)
-
-	if (!imagen) {
-		// Manejar error
-		FreeImage_DeInitialise();
-		return;
-	}
-
-	// 3. Pasar los píxeles de tu arreglo al formato de FreeImage
-	// Nota: El Ray Tracing suele calcular de arriba-abajo, pero FreeImage lee de abajo-arriba (Y invertida).
-	for (int y = 0; y < alto; y++) {
-		// Conseguimos un puntero a la fila actual de la imagen de FreeImage
-		BYTE* fila = FreeImage_GetScanLine(imagen, y);
-
-		for (int x = 0; x < ancho; x++) {
-			// En un Ray Tracer clásico, el origen (0,0) está arriba a la izquierda.
-			// Para corregir la inversión vertical de FreeImage mapeamos la Y al revés:
-			int indice_tu_buffer = (alto - 1 - y) * ancho + x;
-
-			// FreeImage espera los bytes en orden B-G-R
-			fila[x * 3 + 0] = static_cast<unsigned char>(pixel_buffer[indice_tu_buffer].b); // Blue
-			fila[x * 3 + 1] = static_cast<unsigned char>(pixel_buffer[indice_tu_buffer].g); // Green
-			fila[x * 3 + 2] = static_cast<unsigned char>(pixel_buffer[indice_tu_buffer].r); // Red
-		}
-	}
-
-	// 4. Guardar la imagen en disco
-	// El tercer parámetro son flags (PNG_DEFAULT es compresión estándar)
-	FreeImage_Save(FIF_PNG, imagen, nombre_archivo, PNG_DEFAULT);
-
-	// 5. Limpieza de memoria
-	FreeImage_Unload(imagen);
-	FreeImage_DeInitialise();
-}
-
 class Luz {
 private:
 	Vector posicion;
@@ -699,26 +658,32 @@ public:
 
 class Imagen {
 private:
-	Escena *escena;
+	const Escena *escena;
 	int largo, alto;
-	Vector posicion_camara; // Sugerencia de Pilo: Con tres vectores
+	const Vector posicion_camara, direccion_vista, up;
 
 	vector<Color> pixeles;
 public:
-	Imagen(Escena *escena, int largo, int alto, Vector posicion_camara)
-		: escena(escena), largo(largo), alto(alto), posicion_camara(posicion_camara) {}
+	Imagen(const Escena *escena, int largo, int alto,
+		   const Vector posicion_camara, const Vector direccion_vista, const Vector up)
+		: escena(escena), largo(largo), alto(alto), posicion_camara(posicion_camara),
+		  direccion_vista(direccion_vista.normal()), up(up.normal()) {}
 
 	// Dibuja la escena y devuelve los pixeles (el tamaño del vector es largo * alto)
 	vector<Color> dibujar() {
 		pixeles.clear();
 		pixeles.reserve(largo * alto);
+		Vector direccion_barrido = up.producto_vectorial(direccion_vista);
 
 		for (int i = 0; i < alto; i++) {
 			for (int j = 0; j < largo; j++) {
-				Vector direccion((j - largo / 2.0) / alto, (i - alto / 2.0) / alto, 1);
+				Vector direccion =
+					direccion_vista
+					+ direccion_barrido * (j - largo / 2.0) / alto
+					+ up * (i - alto / 2.0) / alto;
 
 				Rayo r(posicion_camara, direccion.normal(), escena);
-				pixeles.push_back(r.color(4));
+				pixeles.push_back(r.color(3));
 			}
 		}
 
@@ -726,7 +691,37 @@ public:
 	}
 
 	// Guarda la imagen en un archivo
-	void guardar(string archivo);
+	void guardar(string archivo) {
+		// Inicializar librería
+		FreeImage_Initialise();
+		FIBITMAP *imagen = FreeImage_Allocate(largo, alto, 24);
+
+		if (!imagen) {
+			FreeImage_DeInitialise();
+			cerr << "Error de FreeImage" << endl; 
+			exit(1);
+		}
+
+		for (int i = 0; i < alto; i++) {
+			// Conseguimos un puntero a la fila actual de la imagen de FreeImage
+			BYTE *fila = FreeImage_GetScanLine(imagen, i);
+
+			for (int j = 0; j < largo; j++) {
+				// FreeImage invierte la imagen. Damos vuelta el componente i.
+				int indice = (alto - 1 - i) * largo + j;
+
+				// FreeImage espera los bytes en orden B-G-R
+				fila[j * 3 + 0] = static_cast<unsigned char>(pixeles[indice].b);
+				fila[j * 3 + 1] = static_cast<unsigned char>(pixeles[indice].g);
+				fila[j * 3 + 2] = static_cast<unsigned char>(pixeles[indice].r);
+			}
+		}
+
+		FreeImage_Save(FIF_PNG, imagen, archivo.data(), PNG_DEFAULT);
+
+		FreeImage_Unload(imagen);
+		FreeImage_DeInitialise();
+	}
 };
 
 int main() {
@@ -785,7 +780,10 @@ int main() {
 	int largo = 1000, alto = 1000;
 
 	Vector posicion_camara(0, 0, 0);
-	Imagen imagen(&escena, largo, alto, posicion_camara);
+	Vector direccion_vista(0, 0, 1);
+	Vector up(0, 1, 0);
+	Imagen imagen(&escena, largo, alto, posicion_camara, direccion_vista, up);
 
-	guardar_render_a_png(imagen.dibujar(), largo, alto, "foto.png");
+	imagen.dibujar();
+	imagen.guardar("foto.png");
 }
