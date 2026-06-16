@@ -438,6 +438,8 @@ public:
         return hubo_interseccion ? t_min : -1.0f;
 	}
 
+	
+
 	Vector normal_en_punto(const Vector &p) const override {
         const float EPSILON = 0.001f;
 
@@ -455,6 +457,85 @@ public:
         Vector normal_lateral(de_centro_a_p.get_x(), 0.0f, de_centro_a_p.get_z());
 
         return normal_lateral.normal();
+    }
+};
+
+struct CuadrilateroData {
+    int v0, v1, v2, v3; // Los 4 índices de los vértices en sentido horario o antihorario
+};
+
+class MallaCuadrilateros : public Objeto {
+private:
+    std::vector<Vector> vertices;
+    std::vector<CuadrilateroData> caras;
+    mutable Vector normal_ultimo_impacto; // mutable permite modificarla dentro de métodos const
+
+    // Función auxiliar interna corregida con paso por referencia constante
+    float intersección_triangulo(const Vector& p, const Vector& v, const Vector& v0, const Vector& v1, const Vector& v2, Vector& normal_out) const {
+        Vector edge1 = v1 - v0;
+        Vector edge2 = v2 - v0;
+        Vector h = v.producto_vectorial(edge2);
+        float a = edge1.producto_interno(h);
+
+        if (a > -1e-6f && a < 1e-6f) return -1.0f;
+
+        float f = 1.0f / a;
+        Vector s = p - v0;
+        float u = f * s.producto_interno(h);
+        if (u < 0.0f || u > 1.0f) return -1.0f;
+
+        Vector q = s.producto_vectorial(edge1);
+        float _v = f * v.producto_interno(q);
+        if (_v < 0.0f || u + _v > 1.0f) return -1.0f;
+
+        float t = f * edge2.producto_interno(q);
+        if (t > 1e-4f) {
+            normal_out = edge1.producto_vectorial(edge2).normal();
+            return t;
+        }
+        return -1.0f;
+    }
+
+public:
+    MallaCuadrilateros(const std::vector<Vector>& vertices, const std::vector<CuadrilateroData>& caras,
+                       bool reflejante, float transparencia, float refraccion,
+                       Color ambiente, Color difusa, Color especular)
+        : vertices(vertices), caras(caras), normal_ultimo_impacto(0,1,0),
+          Objeto(reflejante, transparencia, refraccion, ambiente, difusa, especular) {}
+
+    // Ahora SÍ coincide exactamente con la firma de Objeto
+    float interseccion_mas_cercana(const Vector &p, const Vector &v) const override {
+        float t_min = std::numeric_limits<float>::infinity();
+        bool hubo_impacto = false;
+        Vector normal_temporal(0, 1, 0);
+
+        for (const auto& cara : caras) {
+            Vector p0 = vertices[cara.v0];
+            Vector p1 = vertices[cara.v1];
+            Vector p2 = vertices[cara.v2];
+            Vector p3 = vertices[cara.v3];
+
+            float tA = intersección_triangulo(p, v, p0, p1, p2, normal_temporal);
+            if (tA > 1e-4f && tA < t_min) {
+                t_min = tA;
+                normal_ultimo_impacto = normal_temporal;
+                hubo_impacto = true;
+            }
+
+            float tB = intersección_triangulo(p, v, p0, p2, p3, normal_temporal);
+            if (tB > 1e-4f && tB < t_min) {
+                t_min = tB;
+                normal_ultimo_impacto = normal_temporal;
+                hubo_impacto = true;
+            }
+        }
+
+        return hubo_impacto ? t_min : -1.0f;
+    }
+
+    // Firma corregida para que coincida con Objeto
+    Vector normal_en_punto(const Vector &p) const override {
+        return normal_ultimo_impacto;
     }
 };
 
@@ -606,7 +687,6 @@ private:
 				}
 			}
 		}
-
 		return color;
 	}
 
@@ -677,10 +757,14 @@ public:
 
 		for (int i = 0; i < alto; i++) {
 			for (int j = 0; j < largo; j++) {
+<<<<<<< HEAD
 				Vector direccion =
 					direccion_vista
 					+ direccion_barrido * (j - largo / 2.0) / alto
 					+ up * (i - alto / 2.0) / alto;
+=======
+				Vector direccion((j - largo / 2.0) / alto, (alto / 2.0 - i) / alto, 1);
+>>>>>>> 964264a96c7e3f16be6fbe684dff00b76b370e94
 
 				Rayo r(posicion_camara, direccion.normal(), escena);
 				pixeles.push_back(r.color(3));
@@ -725,60 +809,105 @@ public:
 };
 
 int main() {
-	Color color_ambiente({0, 0, 0});
-	Color luz_ambiente({50, 50, 50});
-	Escena escena(color_ambiente, luz_ambiente);
+    Color color_ambiente({0, 0, 0});
+    Color luz_ambiente({50, 50, 50});
+    Escena escena(color_ambiente, luz_ambiente);
 
-	Vector posicion_esfera2(1.5, 0.5, 10);
-	Color gris({150, 150, 150});
-	Esfera e2(posicion_esfera2, 0.5, true, 1, 1, gris, gris, {255, 255, 255});
-	escena.agregar(&e2);
+    // El piso está en Y = -4. El tablero de la mesa va a estar en Y = -1.0.
+    // Los objetos se apoyan sobre el tablero (Y = -1.0).
 
-	Vector posicion_esfera3(-0.5, 0.1, 9);
-	Color rosado({150, 100, 100});
-	Esfera e3(posicion_esfera3, 0.9, false, 0.1, 2, rosado, rosado, {255, 255, 255});
-	escena.agregar(&e3);
+    // 1. Esfera Gris Metalizada (Der)
+    Vector posicion_esfera2(1.5f, -0.5f, 10.0f); // Base: -0.5 - 0.5 = -1.0
+    Color gris({150, 150, 150});
+    Esfera e2(posicion_esfera2, 0.5f, true, 1.0f, 1.0f, gris, gris, {255, 255, 255});
+    escena.agregar(&e2);
 
-    Vector posicion_cilindro(0, 0, 9);
-    Color color_verde({0, 255, 0}); // Verde puro
-    Cilindro cilindro(posicion_cilindro, 0.5, 1, false, 1, 1, color_verde, color_verde, {100, 100, 100});
+    // 2. Esfera Rosada Transparente (Izq)
+    Vector posicion_esfera3(-0.5f, -0.1f, 9.0f); // Base: -0.1 - 0.9 = -1.0
+    Color rosado({150, 100, 100});
+    Esfera e3(posicion_esfera3, 0.9f, false, 0.1f, 2.0f, rosado, rosado, {255, 255, 255});
+    escena.agregar(&e3);
+
+    // 3. Cilindro Verde (Centro)
+    Vector posicion_cilindro(0.0f, -1.0f, 9.0f); // Arranca en Y = -1.0 y sube 1 unidad de altura
+    Color color_verde({0, 255, 0});
+    Cilindro cilindro(posicion_cilindro, 0.5f, 1.0f, false, 1.0f, 1.0f, color_verde, color_verde, {100, 100, 100});
     escena.agregar(&cilindro);
 
-	// --- AGREGANDO PAREDES, TECHO Y PISO ---
-    Color color_gris({150, 150, 150});
-    Color color_pared_izq({0, 255, 0});  
-    Color color_pared_der({0, 0, 255});  
+    // --- CONSTRUCCIÓN DE LA MESA EN EL ESPACIO REAL ---
+    std::vector<Vector> v_mesa = {
+        // Tablero Superior (Y = -1.0) al Inferior (Y = -1.2)
+        Vector(-2.5f, -1.0f,  7.5f),  // 0
+        Vector( 2.5f, -1.0f,  7.5f),  // 1
+        Vector( 2.5f, -1.0f, 11.5f),  // 2
+        Vector(-2.5f, -1.0f, 11.5f),  // 3
+        Vector(-2.5f, -1.2f,  7.5f),  // 4
+        Vector( 2.5f, -1.2f,  7.5f),  // 5
+        Vector( 2.5f, -1.2f, 11.5f),  // 6
+        Vector(-2.5f, -1.2f, 11.5f),  // 7
 
-    // 1. Piso (Ubicado abajo en Y = -3, normal mira hacia arriba [0, 1, 0])
+        // Pata Delantera Izquierda (De Y = -4.0 a Y = -1.2)
+        Vector(-2.3f, -4.0f,  7.7f),  // 8
+        Vector(-2.0f, -4.0f,  7.7f),  // 9
+        Vector(-2.0f, -4.0f,  8.0f),  // 10
+        Vector(-2.3f, -4.0f,  8.0f),  // 11
+        Vector(-2.3f, -1.2f,  7.7f),  // 12
+        Vector(-2.0f, -1.2f,  7.7f),  // 13
+        Vector(-2.0f, -1.2f,  8.0f),  // 14
+        Vector(-2.3f, -1.2f,  8.0f),  // 15
+
+        // Pata Delantera Derecha (De Y = -4.0 a Y = -1.2)
+        Vector( 2.0f, -4.0f,  7.7f),  // 16
+        Vector( 2.3f, -4.0f,  7.7f),  // 17
+        Vector( 2.3f, -4.0f,  8.0f),  // 18
+        Vector( 2.0f, -4.0f,  8.0f),  // 19
+        Vector( 2.0f, -1.2f,  7.7f),  // 20
+        Vector( 2.3f, -1.2f,  7.7f),  // 21
+        Vector( 2.3f, -1.2f,  8.0f),  // 22  <-- Arreglado el -8.0f que estaba acá!
+        Vector( 2.0f, -1.2f,  8.0f)   // 23
+    };
+
+    std::vector<CuadrilateroData> c_mesa = {
+        {0, 1, 2, 3}, {4, 5, 6, 7}, {0, 1, 5, 4}, {2, 3, 7, 6}, {0, 3, 7, 4}, {1, 2, 6, 5}, // Tablero
+        {8,  9,  13, 12}, {9,  10, 14, 13}, {10, 11, 15, 14}, {11, 8,  12, 15},               // Pata Izq
+        {16, 17, 21, 20}, {17, 18, 22, 21}, {18, 19, 23, 22}, {19, 16, 20, 23}                // Pata Der
+    };
+
+    Color color_madera({130, 70, 20});
+    MallaCuadrilateros mesa(v_mesa, c_mesa, false, 1.0f, 1.0f, color_madera, color_madera, {50, 50, 50});
+    escena.agregar(&mesa);
+
+    // --- ENTORNO ---
+    Color color_gris({150, 150, 150});
     Plano piso(Vector(0, -4, 0), Vector(0, 1, 0), false, 1, color_gris, color_gris, {50, 50, 50});
     escena.agregar(&piso);
 
-    // 2. Techo (Ubicado arriba en Y = 3, normal mira hacia abajo [0, -1, 0])
     Plano techo(Vector(0, 4, 0), Vector(0, -1, 0), false, 1, color_gris, color_gris, {50, 50, 50});
     escena.agregar(&techo);
 
-    // 3. Pared Izquierda (Ubicada en X = -4, normal mira hacia la derecha [1, 0, 0])
     Plano pared_izq(Vector(-4, 0, 0), Vector(1, 0, 0), false, 1, color_gris, color_gris, {50, 50, 50});
     escena.agregar(&pared_izq);
 
-    // 4. Pared Derecha (Ubicada en X = 4, normal mira hacia la izquierda [-1, 0, 0])
     Plano pared_der(Vector(4, 0, 0), Vector(-1, 0, 0), false, 1, color_gris, color_gris, {50, 50, 50});
     escena.agregar(&pared_der);
 
-    // 5. Pared del Fondo (Ubicada atrás de la esfera en Z = 12, normal mira hacia la cámara [0, 0, -1])
     Plano fondo(Vector(0, 0, 14), Vector(0, 0, -1), false, 1, color_gris, color_gris, {50, 50, 50});
     escena.agregar(&fondo);
 
-	Vector posicion_luz(0, -3, 7);
-	Luz l(posicion_luz, {110, 110, 110}, {80, 80, 80});
-	escena.agregar(&l);
+    // Cambié la posición de las luces a Y = 3.0 para que iluminen desde el techo real
+    Vector posicion_luz(0, 3, 7);
+    Luz l(posicion_luz, {110, 110, 110}, {80, 80, 80});
+    escena.agregar(&l);
 
-	Vector posicion_luz2(0, -3, 9);
-	Luz l2(posicion_luz2, {110, 110, 110}, {80, 80, 80});
-	escena.agregar(&l2);
+    Vector posicion_luz2(0, 3, 9);
+    Luz l2(posicion_luz2, {110, 110, 110}, {80, 80, 80});
+    escena.agregar(&l2);
 
-	int largo = 1000, alto = 1000;
+    int largo = 1000, alto = 1000;
+    Vector posicion_camara(0, 0, 0);
+    Imagen imagen(&escena, largo, alto, posicion_camara);
 
+<<<<<<< HEAD
 	Vector posicion_camara(0, 0, 0);
 	Vector direccion_vista(0, 0, 1);
 	Vector up(0, 1, 0);
@@ -786,4 +915,7 @@ int main() {
 
 	imagen.dibujar();
 	imagen.guardar("foto.png");
+=======
+    guardar_render_a_png(imagen.dibujar(), largo, alto, "foto.png");
+>>>>>>> 964264a96c7e3f16be6fbe684dff00b76b370e94
 }
