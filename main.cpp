@@ -617,10 +617,7 @@ public:
 	Escena(Color color_fondo, Color luz_ambiente)
 		: color(color_fondo), ambiente(luz_ambiente) {};
 		
-	Escena(string nombre_archivo) {
-	    ifstream archivo(nombre_archivo);
-	    json j = json::parse(archivo);
-
+	Escena(json j) {
 	    color = j["color_fondo"].get<Color>();
 	    ambiente = j["luz_ambiente"].get<Color>();
 
@@ -793,7 +790,7 @@ private:
 
 	// Devuelve el objeto más cercano al rayo y la distancia a él.
 	// Si no interseca ningún objeto, devuelve {nullptr, infinity}.
-	std::pair<const Objeto *, float> objeto_mas_cercano() const {
+	pair<const Objeto *, float> objeto_mas_cercano() const {
 		float distancia_minima = numeric_limits<float>::infinity();
 		const Objeto *mas_cercano = nullptr;
 
@@ -841,7 +838,7 @@ class Imagen {
 private:
 	const Escena *escena;
 	int largo, alto;
-	const Vector posicion_camara, direccion_vista, up;
+	Vector posicion_camara, direccion_vista, up;
 
 	vector<Color> pixeles;
 public:
@@ -849,6 +846,14 @@ public:
 		   const Vector posicion_camara, const Vector direccion_vista, const Vector up)
 		: escena(escena), largo(largo), alto(alto), posicion_camara(posicion_camara),
 		  direccion_vista(direccion_vista.normal()), up(up.normal()) {}
+
+	Imagen(const Escena *escena, const json &j) : escena(escena) {
+		largo = j["largo_imagen"].get<int>();
+		alto = j["alto_imagen"].get<int>();
+		posicion_camara = j["posicion_camara"].get<Vector>();
+		direccion_vista = j["direccion_vista"].get<Vector>().normal();
+		up = j["direccion_arriba"].get<Vector>().normal();
+	}
 
 	// Dibuja la escena y devuelve los pixeles (el tamaño del vector es largo * alto)
 	vector<Color> dibujar() {
@@ -906,14 +911,11 @@ public:
 };
 
 int main() {
-	Escena escena("escena.json");
+    ifstream archivo("escena.json");
+    json j = json::parse(archivo);
+	Escena escena(j);
 
-    int largo = 1000, alto = 1000;
-
-	Vector posicion_camara(0, 0, 0);
-	Vector direccion_vista(0, 0, 1);
-	Vector up(0, 1, 0);
-	Imagen imagen(&escena, largo, alto, posicion_camara, direccion_vista, up);
+	Imagen imagen(&escena, j);
 
 	imagen.dibujar();
 	imagen.guardar("foto.png");
