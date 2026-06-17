@@ -1,6 +1,6 @@
 {
-	"largo_imagen": 1000,
-	"alto_imagen": 1000,
+	"largo_imagen": 2000,
+	"alto_imagen": 2000,
 	"posicion_camara": [0, 0, 0],
 	"direccion_vista": [0, 0, 1],
 	"direccion_arriba": [0, 1, 0],
@@ -136,15 +136,13 @@
 				],
 				"caras": [
 					[3, 2, 1, 0],
-					[4, 5, 1, 0],
-					[4, 7, 3, 0],
-					[5, 6, 2, 1]
+					[0, 1, 5, 4]
 				],
 				"espejado": false,
 				"transparencia": 1,
 				"refraccion": 1,
 				"luz": {
-					"difusa": [255, 255, 255],
+					"difusa": [150, 150, 150],
 					"ambiente": [255, 255, 255],
 					"especular": [100, 100, 100]
 				}

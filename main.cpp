@@ -392,7 +392,7 @@ public:
             return -1.0f;
         }
 
-		//fórmula: t = ((q - p) . n) / (v . n)
+		// fórmula: t = ((q - p) . n) / (v . n)
         float t = ((punto_plano - p) * normal_plano) / denominador;
 
 		// Si t es positivo, la intersección ocurrió adelante de la cámara
@@ -487,8 +487,6 @@ public:
 
         return hubo_interseccion ? t_min : -1.0f;
 	}
-
-	
 
 	Vector normal_en_punto(const Vector &p) const override {
         const float EPSILON = 0.001f;
