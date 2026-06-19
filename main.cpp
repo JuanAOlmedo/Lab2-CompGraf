@@ -902,6 +902,20 @@ int main() {
 
 	Vector posicion_camara(0, 0, 0);
 	Vector direccion_vista(0, 0, 1);
+
+	//Vector direccion_vista(0, -0.2f, 1); agacha la cabeza
+	
+	/*Vector posicion_camara(-3.0f, 0.5f, 7.0f); 
+	Vector direccion_vista(1.0f, -0.4f, 1.0f);
+	Vector up(0, 1, 0);*/
+
+	/*Vector posicion_camara(-2.0f, 2.0f, -2.0f); // Esquina superior trasera izquierda
+
+	
+	Vector direccion_vista(0.5f, -0.5f, 9.5f); // Centro geométrico del bodegón
+
+	Vector up(0.0f, 1.0f, 0.0f);*/
+	
 	Vector up(0, 1, 0);
 	Imagen imagen(&escena, largo, alto, posicion_camara, direccion_vista, up);
 
