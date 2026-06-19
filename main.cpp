@@ -680,6 +680,14 @@ private:
 	const Objeto *evitado; // No queremos calcular intersecciones con este objeto
 	const Objeto *adentro; // Estamos adentro de este objeto
 
+	bool solo_reflexion, solo_transparencia;
+
+	int profundidad;
+
+	// Calcula qué tan tapado está el rayo por objetos.
+	// Por ejemplo, si el rayo interseca algún objeto opaco en distancia
+	// menor a distancia_maxima, devuelve negro. Si interseca un objeto transparente,
+	// devuelve el color del objeto.
 	Color oclusion(float distancia_maxima) const {
 		Color color({255, 255, 255});
 
@@ -700,7 +708,64 @@ private:
 		return color;
 	}
 
-	Color sombra(const Objeto *objeto, float d, int profundidad) const {
+	Color reflexion(const Objeto *objeto, const Vector &punto, const Vector &normal) const {
+		Rayo r(punto, direccion.reflexion(normal), escena, profundidad - 1);
+
+		// Evitar que r interseque el mismo objeto
+		if (adentro != objeto)
+			r.evitar(objeto);
+		// r va a estar sí o sí adentro del mismo objeto que yo
+		if (adentro != nullptr)
+			r.adentro_de(adentro);
+
+		return objeto->luz_especular() * r.color() * 0.6;
+	}
+
+	Color transparencia(const Objeto *objeto, const Vector &punto, const Vector &normal) const {
+		Vector normal_efectiva;
+		float nabla1, nabla2;
+
+		// Si no estamos adentro de ningún objeto, el primer índice de refracción
+		// es el del aire. Si no, es el del objeto en el que estamos.
+		if (adentro == nullptr)
+			nabla1 = INDICE_REFRACCION_AIRE;
+		else
+			nabla1 = adentro->get_refraccion();
+
+		if (objeto == adentro) {
+			// Si estamos adentro del objeto que intersecamos, el segundo índice de
+			// refracción es el aire.
+			nabla2 = INDICE_REFRACCION_AIRE;
+			normal_efectiva = normal;
+		} else {
+			// Si no, el segundo índice de refracción es el del objeto intersecado.
+			nabla2 = objeto->get_refraccion();
+			// La normal está apuntando en dirección opuesta a la dirección de entrada,
+			// invertirla
+			normal_efectiva = -normal;
+		}
+
+		float theta1 = normal_efectiva.angulo(direccion);
+
+		// No calcular nada si hay refracción interna total
+		if (nabla1 <= nabla2 || theta1 <= std::asin(nabla2 / nabla1)) {
+			float theta2 = std::asin(std::sin(theta1) * nabla1 / nabla2);
+			Vector direccion_salida = direccion.cambiar_angulo(normal_efectiva, theta2);
+
+			Rayo t(punto + direccion * 0.0001, direccion_salida, escena, profundidad - 1);
+
+			if (objeto == adentro)
+				t.evitar(objeto); // Estamos saliendo del objeto, hacer que t lo evite
+			else
+				t.adentro_de(objeto); // Estamos entrando al objeto
+
+			return objeto->luz_difusa() * t.color();
+		}
+
+		return {0, 0, 0};
+	}
+
+	Color sombra(const Objeto *objeto, float d) const {
 		Vector punto = punto_inicial + d * direccion;
 		Vector normal = objeto->normal_en_punto(punto);
 
@@ -712,7 +777,7 @@ private:
 			direccion_a_luz = direccion_a_luz / distancia_luz;
 
 			float producto = normal * direccion_a_luz;
-			Rayo l(punto, direccion_a_luz, escena);
+			Rayo l(punto, direccion_a_luz, escena, 0);
 			l.evitar(objeto);
 			Color oclusion_luz = l.oclusion(distancia_luz);
 
@@ -728,70 +793,16 @@ private:
 			}
 
 			if (profundidad > 0) {
-				if (objeto->get_reflejante()) {
-					Rayo r(punto, direccion.reflexion(normal), escena);
+				if (objeto->get_reflejante())
+					color += reflexion(objeto, punto, normal);
 
-					// Evitar que r interseque el mismo objeto
-					if (adentro != objeto)
-						r.evitar(objeto);
-					// r va a estar sí o sí adentro del mismo objeto que yo
-					if (adentro != nullptr)
-						r.adentro_de(adentro);
-
-					color += objeto->luz_especular() * r.color(profundidad - 1) * 0.6;
-				}
-
-				if (objeto->get_transparencia() < 1) {
-					Vector normal_efectiva;
-					float nabla1, nabla2;
-
-					// Si no estamos adentro de ningún objeto, el primer índice de refracción
-					// es el del aire. Si no, es el del objeto en el que estamos.
-					if (adentro == nullptr)
-						nabla1 = INDICE_REFRACCION_AIRE;
-					else
-						nabla1 = adentro->get_refraccion();
-
-					if (objeto == adentro) {
-						// Si estamos adentro del objeto que intersecamos, el segundo índice de
-						// refracción es el aire.
-						nabla2 = INDICE_REFRACCION_AIRE;
-						normal_efectiva = normal;
-					} else {
-						// Si no, el segundo índice de refracción es el del objeto intersecado.
-						nabla2 = objeto->get_refraccion();
-						// La normal está apuntando en dirección opuesta a la dirección de entrada,
-						// invertirla
-						normal_efectiva = -normal;
-					}
-
-					float theta1 = normal_efectiva.angulo(direccion);
-
-					// No calcular nada si hay refracción interna total
-					if (nabla1 <= nabla2 || theta1 <= std::asin(nabla2 / nabla1)) {
-						float theta2 = std::asin(std::sin(theta1) * nabla1 / nabla2);
-
-						Rayo t(punto + direccion * 0.0001, direccion.cambiar_angulo(normal_efectiva, theta2), escena);
-
-						if (objeto == adentro)
-							t.evitar(objeto); // Estamos saliendo del objeto, hacer que t lo evite
-						else
-							t.adentro_de(objeto); // Estamos entrando al objeto
-
-						color += objeto->luz_difusa() * t.color(profundidad - 1);
-					}
-				}
+				if (objeto->get_transparencia() < 1)
+					color += transparencia(objeto, punto, normal);
 			}
 		}
+
 		return color;
 	}
-
-	
-
-public:
-	Rayo(const Vector punto_inicial, const Vector direccion, const Escena *escena)
-		: punto_inicial(punto_inicial), direccion(direccion),
-		  escena(escena), evitado(nullptr), adentro(nullptr) {}
 
 	// Devuelve el objeto más cercano al rayo y la distancia a él.
 	// Si no interseca ningún objeto, devuelve {nullptr, infinity}.
@@ -814,6 +825,14 @@ public:
 		return {mas_cercano, distancia_minima};
 	}
 
+public:
+	Rayo(const Vector punto_inicial, const Vector direccion,
+		 const Escena *escena, int profundidad)
+		: punto_inicial(punto_inicial), direccion(direccion),
+		  escena(escena), evitado(nullptr), adentro(nullptr),
+		  solo_reflexion(false), solo_transparencia(false),
+		  profundidad(profundidad) {}
+
 	// Especifica un objeto a evitar al calcular intersecciones.
 	void evitar(const Objeto *o) {
 		evitado = o;
@@ -824,12 +843,29 @@ public:
 		adentro = o;
 	}
 
-	Color color(int profundidad) const {
+	void calcular_solo_reflexion() {
+		solo_reflexion = true;
+		solo_transparencia = false;
+	}
+
+	void calcular_solo_transparencia() {
+		solo_reflexion = false;
+		solo_transparencia = true;
+	}
+
+	Color color() const {
 		auto mas_cercano = objeto_mas_cercano();
 
-		if (mas_cercano.first != nullptr)
-			return sombra(mas_cercano.first, mas_cercano.second, profundidad);
-		else
+		if (mas_cercano.first != nullptr) {
+			Color blanco({255, 255, 255});
+
+			if (solo_reflexion)
+				return blanco * (float) mas_cercano.first->get_reflejante();
+			else if (solo_transparencia)
+				return blanco * (1 - mas_cercano.first->get_transparencia());
+			else
+				return sombra(mas_cercano.first, mas_cercano.second);
+		} else
 			return escena->color_fondo();
 	}
 };
@@ -839,6 +875,7 @@ private:
 	const Escena *escena;
 	int largo, alto;
 	Vector posicion_camara, direccion_vista, up;
+	bool solo_reflexion, solo_transparencia;
 
 	vector<Color> pixeles;
 public:
@@ -847,7 +884,8 @@ public:
 		: escena(escena), largo(largo), alto(alto), posicion_camara(posicion_camara),
 		  direccion_vista(direccion_vista.normal()), up(up.normal()) {}
 
-	Imagen(const Escena *escena, const json &j) : escena(escena) {
+	Imagen(const Escena *escena, const json &j)
+		: escena(escena), solo_reflexion(false), solo_transparencia(false) {
 		largo = j["largo_imagen"].get<int>();
 		alto = j["alto_imagen"].get<int>();
 		posicion_camara = j["posicion_camara"].get<Vector>();
@@ -855,8 +893,22 @@ public:
 		up = j["direccion_arriba"].get<Vector>().normal();
 	}
 
+	Imagen &calcular_solo_reflexion() {
+		solo_reflexion = true;
+		solo_transparencia = false;
+
+		return *this;
+	}
+
+	Imagen &calcular_solo_transparencia() {
+		solo_reflexion = false;
+		solo_transparencia = true;
+
+		return *this;
+	}
+
 	// Dibuja la escena y devuelve los pixeles (el tamaño del vector es largo * alto)
-	vector<Color> dibujar() {
+	void dibujar() {
 		pixeles.clear();
 		pixeles.reserve(largo * alto);
 		Vector direccion_barrido = up.producto_vectorial(direccion_vista.normal());
@@ -868,12 +920,16 @@ public:
 					+ direccion_barrido * (j - largo / 2.0) / alto
 					+ up * (alto / 2.0 - i) / alto;
 
-				Rayo r(posicion_camara, direccion.normal(), escena);
-				pixeles.push_back(r.color(3));
+				Rayo r(posicion_camara, direccion.normal(), escena, 3);
+
+				if (solo_reflexion)
+					r.calcular_solo_reflexion();
+				else if (solo_transparencia)
+					r.calcular_solo_transparencia();
+
+				pixeles.push_back(r.color());
 			}
 		}
-
-		return pixeles;
 	}
 
 	// Guarda la imagen en un archivo
@@ -908,134 +964,6 @@ public:
 		FreeImage_Unload(imagen);
 		FreeImage_DeInitialise();
 	}
-
-	void generar_mapa_reflexion(string archivo) {
-		pixeles.clear();
-		pixeles.reserve(largo * alto);
-		Vector direccion_barrido = up.producto_vectorial(direccion_vista);
-
-		for (int i = 0; i < alto; i++) {
-			for (int j = 0; j < largo; j++) {
-				// Generamos el rayo primario de la cámara exactamente igual que en dibujar()
-				Vector direccion =
-					direccion_vista
-					+ direccion_barrido * (j - largo / 2.0) / alto
-					+ up * (alto / 2.0 - i) / alto;
-
-				Rayo r(posicion_camara, direccion.normal(), escena);
-				
-				// Buscamos cuál es el objeto más cercano con el que choca el rayo
-				auto mas_cercano = r.objeto_mas_cercano();
-
-				Color color_gris({0.0f, 0.0f, 0.0f}); // Negro por defecto (fondo)
-
-				if (mas_cercano.first != nullptr) {
-					// Si hay impacto, evaluamos si el objeto es reflejante
-					// true -> Blanco (255), false -> Negro (0)
-					if (mas_cercano.first->get_reflejante()) {
-						color_gris = {255.0f, 255.0f, 255.0f}; // Blanco total
-					} else {
-						color_gris = {0.0f, 0.0f, 0.0f};       // Negro total
-					}
-				}
-
-				pixeles.push_back(color_gris);
-			}
-		}
-
-		// Reutilizamos la lógica exacta de FreeImage de tu método guardar() para salvar este mapa
-		FreeImage_Initialise();
-		FIBITMAP *imagen = FreeImage_Allocate(largo, alto, 24);
-
-		if (!imagen) {
-			FreeImage_DeInitialise();
-			cerr << "Error de FreeImage en mapa de reflexión" << endl; 
-			exit(1);
-		}
-
-		for (int i = 0; i < alto; i++) {
-			BYTE *fila = FreeImage_GetScanLine(imagen, i);
-
-			for (int j = 0; j < largo; j++) {
-				int indice = (alto - 1 - i) * largo + j;
-
-				fila[j * 3 + 0] = static_cast<unsigned char>(pixeles[indice].b);
-				fila[j * 3 + 1] = static_cast<unsigned char>(pixeles[indice].g);
-				fila[j * 3 + 2] = static_cast<unsigned char>(pixeles[indice].r);
-			}
-		}
-
-		FreeImage_Save(FIF_PNG, imagen, archivo.data(), PNG_DEFAULT);
-
-		FreeImage_Unload(imagen);
-		FreeImage_DeInitialise();
-	}
-
-	// Genera la imagen auxiliar para los coeficientes de transmisión (transparencia) en blanco y negro
-	void generar_mapa_transmision(string archivo) {
-		pixeles.clear();
-		pixeles.reserve(largo * alto);
-		Vector direccion_barrido = up.producto_vectorial(direccion_vista);
-
-		for (int i = 0; i < alto; i++) {
-			for (int j = 0; j < largo; j++) {
-				Vector direccion =
-					direccion_vista
-					+ direccion_barrido * (j - largo / 2.0) / alto
-					+ up * (alto / 2.0 - i) / alto;
-
-				Rayo r(posicion_camara, direccion.normal(), escena);
-				
-				auto mas_cercano = r.objeto_mas_cercano();
-
-				Color color_gris({0.0f, 0.0f, 0.0f}); // Negro por defecto (fondo/opaco)
-
-				if (mas_cercano.first != nullptr) {
-					// Extraemos el valor de transparencia del objeto (va de 0.0 a 1.0)
-					float t = mas_cercano.first->get_transparencia();
-
-					// AJUSTE DE ESCALA: 
-					// Si en tu código 0.0 es totalmente opaco y 1.0 es totalmente transparente, dejamos 't' directo.
-					// Si en tu código es al revés (0.0 transparente, 1.0 opaco), descomentá la siguiente línea:
-					// t = 1.0f - t;
-					t = 1.0f - t;
-					// Multiplicamos por 255 para llevarlo al rango de color RGB
-					float gris_val = t * 255.0f;
-					color_gris = {gris_val, gris_val, gris_val};
-				}
-
-				pixeles.push_back(color_gris);
-			}
-		}
-
-		// Guardamos la imagen en disco usando FreeImage
-		FreeImage_Initialise();
-		FIBITMAP *imagen = FreeImage_Allocate(largo, alto, 24);
-
-		if (!imagen) {
-			FreeImage_DeInitialise();
-			cerr << "Error de FreeImage en mapa de transmisión" << endl; 
-			exit(1);
-		}
-
-		for (int i = 0; i < alto; i++) {
-			BYTE *fila = FreeImage_GetScanLine(imagen, i);
-
-			for (int j = 0; j < largo; j++) {
-				int indice = (alto - 1 - i) * largo + j;
-
-				fila[j * 3 + 0] = static_cast<unsigned char>(pixeles[indice].b);
-				fila[j * 3 + 1] = static_cast<unsigned char>(pixeles[indice].g);
-				fila[j * 3 + 2] = static_cast<unsigned char>(pixeles[indice].r);
-			}
-		}
-
-		FreeImage_Save(FIF_PNG, imagen, archivo.data(), PNG_DEFAULT);
-
-		FreeImage_Unload(imagen);
-		FreeImage_DeInitialise();
-	}
-
 };
 
 int main() {
@@ -1048,6 +976,9 @@ int main() {
 	imagen.dibujar();
 	imagen.guardar("foto.png");
 
-	imagen.generar_mapa_reflexion("mapa_reflexion.png");
-	imagen.generar_mapa_transmision("mapa_transmision.png");
+	imagen.calcular_solo_reflexion().dibujar();
+	imagen.guardar("reflexion.png");
+
+	imagen.calcular_solo_transparencia().dibujar();
+	imagen.guardar("transparencia.png");
 }
