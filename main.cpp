@@ -10,7 +10,7 @@
 #include <fstream>
 
 using namespace std;
-using namespace nlohmann::json_abi_v3_12_0;
+using json = nlohmann::json;
 
 class Vector {
 public:
