@@ -529,12 +529,12 @@ void from_json(const json& j, CuadrilateroData& c) {
 
 class MallaCuadrilateros : public Objeto {
 private:
-    std::vector<Vector> vertices;
-    std::vector<CuadrilateroData> caras;
+    vector<Vector> vertices;
+    vector<CuadrilateroData> caras;
     mutable Vector normal_ultimo_impacto; // mutable permite modificarla dentro de métodos const
 
     // Función auxiliar interna corregida con paso por referencia constante
-    float intersección_triangulo(const Vector& p, const Vector& v, const Vector& v0, const Vector& v1, const Vector& v2, Vector& normal_out) const {
+    static float interseccion_triangulo(const Vector& p, const Vector& v, const Vector& v0, const Vector& v1, const Vector& v2, Vector& normal_out) {
         Vector edge1 = v1 - v0;
         Vector edge2 = v2 - v0;
         Vector h = v.producto_vectorial(edge2);
@@ -582,14 +582,14 @@ public:
             Vector p2 = vertices[cara.v2];
             Vector p3 = vertices[cara.v3];
 
-            float tA = intersección_triangulo(p, v, p0, p1, p2, normal_temporal);
+            float tA = interseccion_triangulo(p, v, p0, p1, p2, normal_temporal);
             if (tA > 1e-4f && tA < t_min) {
                 t_min = tA;
                 normal_ultimo_impacto = normal_temporal;
                 hubo_impacto = true;
             }
 
-            float tB = intersección_triangulo(p, v, p0, p2, p3, normal_temporal);
+            float tB = interseccion_triangulo(p, v, p0, p2, p3, normal_temporal);
             if (tB > 1e-4f && tB < t_min) {
                 t_min = tB;
                 normal_ultimo_impacto = normal_temporal;
@@ -738,7 +738,7 @@ private:
 					if (adentro != nullptr)
 						r.adentro_de(adentro);
 
-					color += objeto->luz_especular() * r.color(profundidad - 1) * 0.4;
+					color += objeto->luz_especular() * r.color(profundidad - 1);
 				}
 
 				if (objeto->get_transparencia() < 1) {
@@ -849,7 +849,7 @@ public:
 		largo = j["largo_imagen"].get<int>();
 		alto = j["alto_imagen"].get<int>();
 		posicion_camara = j["posicion_camara"].get<Vector>();
-		direccion_vista = j["direccion_vista"].get<Vector>().normal();
+		direccion_vista = j["direccion_vista"].get<Vector>();
 		up = j["direccion_arriba"].get<Vector>().normal();
 	}
 
@@ -857,7 +857,7 @@ public:
 	vector<Color> dibujar() {
 		pixeles.clear();
 		pixeles.reserve(largo * alto);
-		Vector direccion_barrido = up.producto_vectorial(direccion_vista);
+		Vector direccion_barrido = up.producto_vectorial(direccion_vista.normal());
 
 		for (int i = 0; i < alto; i++) {
 			for (int j = 0; j < largo; j++) {
@@ -911,8 +911,8 @@ public:
 int main() {
     ifstream archivo("escena.json");
     json j = json::parse(archivo);
-	Escena escena(j);
 
+	Escena escena(j);
 	Imagen imagen(&escena, j);
 
 	imagen.dibujar();
