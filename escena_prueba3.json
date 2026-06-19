@@ -1,9 +1,9 @@
 {
-	"largo_imagen": 1000,
-	"alto_imagen": 1000,
-	"recursion": 3,
+	"largo_imagen": 2500,
+	"alto_imagen": 2500,
 	"posicion_camara": [0, 0, 0],
 	"direccion_vista": [0, 0, 1.2],
+	"recursion": 10,
 	"direccion_arriba": [0, 1, 0],
 	"color_fondo": [0, 0, 0],
 	"luz_ambiente": [50, 50, 50],
@@ -22,8 +22,20 @@
 	"objetos": {
 		"esferas": [
 			{
-				"posicion": [1.5, -1.4, 12.2],
-				"radio": 0.6,
+				"posicion": [1.5, 1.5, 12.2],
+				"radio": 1,
+				"espejado": true,
+				"transparencia": 1,
+				"refraccion": 1,
+				"luz": {
+					"difusa": [0, 0, 0],
+					"ambiente": [0, 0, 0],
+					"especular": [255, 255, 255]
+				}
+			},
+			{
+				"posicion": [1.5, -1, 12.2],
+				"radio": 1,
 				"espejado": true,
 				"transparencia": 1,
 				"refraccion": 1,

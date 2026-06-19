@@ -100,6 +100,10 @@ public:
 		return std::sqrt(x * x + y * y + z * z);
 	}
 
+	float get_norma_inf() const {
+		return max(max(x, y), z);
+	}
+
 	float get_norma_2() const {
 		return x * x + y * y + z * z;
 	}
@@ -292,6 +296,8 @@ public:
 	      ambiente(j.at("luz").at("ambiente").get<Color>()),
 	      difusa(j.at("luz").at("difusa").get<Color>()),
 	      especular(j.at("luz").at("especular").get<Color>()) {}
+ 	
+ 	virtual ~Objeto() = default;
 
 	// Devuelven si el objeto es reflejante y su transparencia
 	bool get_reflejante() const {
@@ -400,6 +406,7 @@ public:
 
 		// fórmula: t = ((q - p) . n) / (v . n)
         float t = ((punto_plano - p) * normal_plano) / denominador;
+        Vector direccion_a_centro = p + v * t - punto_plano;
 
 		// Si t es positivo, la intersección ocurrió adelante de la cámara
         if (t > 1e-6f)
@@ -572,10 +579,10 @@ public:
         : vertices(vertices), caras(caras), normal_ultimo_impacto(0,1,0),
           Objeto(reflejante, transparencia, refraccion, ambiente, difusa, especular) {}
 
-	MallaCuadrilateros(const json& j) : Objeto(j) {
-		vertices = j["vertices"].get<vector<Vector>>();
-		caras = j["caras"].get<vector<CuadrilateroData>>();
-	}
+	explicit MallaCuadrilateros(const json& j)
+		: Objeto(j),
+		  vertices(j.at("vertices").get<vector<Vector>>()),
+		  caras(j.at("caras").get<vector<CuadrilateroData>>()) {}
 
     float interseccion_mas_cercana(const Vector &p, const Vector &v) const override {
         float t_min = std::numeric_limits<float>::infinity();
@@ -648,6 +655,14 @@ public:
 	    	Luz *l = new Luz(luz);
 	    	lista_luces.push_back(l);
 	    }
+	}
+
+	~Escena() {
+		for (auto o : lista_objetos)
+			delete o;
+
+		for (auto l : lista_luces)
+			delete l;
 	}
 
 	void agregar(const Objeto *o) {
@@ -883,7 +898,7 @@ class Imagen {
 
 public:
 	Imagen(int largo, int alto, vector<Color> pixeles)
-		: largo(largo), alto(alto), pixeles(pixeles) {}
+		: largo(largo), alto(alto), pixeles(move(pixeles)) {}
 
 	// Guarda la imagen en un archivo
 	void guardar(const string &archivo) {
@@ -922,23 +937,29 @@ public:
 class Renderer {
 private:
 	const Escena &escena;
-	int largo, alto;
+	int largo, alto, profundidad;
 	Vector posicion_camara, direccion_vista, up;
 public:
-	Renderer(const Escena &escena, int largo, int alto,
+	Renderer(const Escena &escena, int largo, int alto, int profundidad,
 		     const Vector posicion_camara, const Vector direccion_vista, const Vector up)
-		: escena(escena), largo(largo), alto(alto), posicion_camara(posicion_camara),
-		  direccion_vista(direccion_vista.normal()), up(up.normal()) {}
+		: escena(escena), largo(largo), alto(alto), profundidad(profundidad),
+		  posicion_camara(posicion_camara), direccion_vista(direccion_vista.normal()),
+		  up(up.normal()) {}
 
 	Renderer(const Escena &escena, const json &j)
 		: escena(escena),
 		  largo(j.at("largo_imagen").get<int>()),
 		  alto(j.at("alto_imagen").get<int>()),
+		  profundidad(j.at("recursion").get<int>()),
 		  posicion_camara(j.at("posicion_camara").get<Vector>()),
 		  direccion_vista(j.at("direccion_vista").get<Vector>()),
 		  up(j.at("direccion_arriba").get<Vector>().normal()) {
 		if (largo <= 0 || alto <= 0) {
 			cerr << "El largo y alto de la imagen tiene que ser positivo" << endl;
+			exit(1);
+		}
+		if (profundidad <= 0) {
+			cerr << "La profundidad de recursión tiene que ser positiva" << endl;
 			exit(1);
 		}
 	}
@@ -956,7 +977,7 @@ public:
 					+ direccion_barrido * (j - largo / 2.0) / alto
 					+ up * (alto / 2.0 - i) / alto;
 
-				Rayo r(posicion_camara, direccion.normal(), escena, 3);
+				Rayo r(posicion_camara, direccion.normal(), escena, profundidad);
 
 				if (modo == ModoRender::SoloReflexion)
 					r.calcular_solo_reflexion();
@@ -967,7 +988,7 @@ public:
 			}
 		}
 
-		return Imagen(largo, alto, pixeles);
+		return Imagen(largo, alto, move(pixeles));
 	}
 };
 
@@ -979,9 +1000,9 @@ int main() {
     	return 1;
     }
 
-    json j = json::parse(archivo);
-
     try {
+    	json j = json::parse(archivo);
+
 		Escena escena(j);
 		Renderer renderer(escena, j);
 
