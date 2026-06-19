@@ -27,8 +27,8 @@
 				"transparencia": 1,
 				"refraccion": 1,
 				"luz": {
-					"difusa": [30, 30, 30],
-					"ambiente": [30, 30, 30],
+					"difusa": [0, 0, 0],
+					"ambiente": [0, 0, 0],
 					"especular": [255, 255, 255]
 				}
 			},

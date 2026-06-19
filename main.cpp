@@ -738,7 +738,7 @@ private:
 					if (adentro != nullptr)
 						r.adentro_de(adentro);
 
-					color += objeto->luz_especular() * r.color(profundidad - 1);
+					color += objeto->luz_especular() * r.color(profundidad - 1) * 0.6;
 				}
 
 				if (objeto->get_transparencia() < 1) {
