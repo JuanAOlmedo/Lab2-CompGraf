@@ -870,12 +870,13 @@ public:
 	}
 };
 
+enum class ModoRender { Completo, SoloReflexion, SoloTransparencia };
+
 class Imagen {
 private:
 	const Escena *escena;
 	int largo, alto;
 	Vector posicion_camara, direccion_vista, up;
-	bool solo_reflexion, solo_transparencia;
 
 	vector<Color> pixeles;
 public:
@@ -884,8 +885,7 @@ public:
 		: escena(escena), largo(largo), alto(alto), posicion_camara(posicion_camara),
 		  direccion_vista(direccion_vista.normal()), up(up.normal()) {}
 
-	Imagen(const Escena *escena, const json &j)
-		: escena(escena), solo_reflexion(false), solo_transparencia(false) {
+	Imagen(const Escena *escena, const json &j) : escena(escena) {
 		largo = j["largo_imagen"].get<int>();
 		alto = j["alto_imagen"].get<int>();
 		posicion_camara = j["posicion_camara"].get<Vector>();
@@ -893,22 +893,8 @@ public:
 		up = j["direccion_arriba"].get<Vector>().normal();
 	}
 
-	Imagen &calcular_solo_reflexion() {
-		solo_reflexion = true;
-		solo_transparencia = false;
-
-		return *this;
-	}
-
-	Imagen &calcular_solo_transparencia() {
-		solo_reflexion = false;
-		solo_transparencia = true;
-
-		return *this;
-	}
-
 	// Dibuja la escena y devuelve los pixeles (el tamaño del vector es largo * alto)
-	void dibujar() {
+	void dibujar(ModoRender modo) {
 		pixeles.clear();
 		pixeles.reserve(largo * alto);
 		Vector direccion_barrido = up.producto_vectorial(direccion_vista.normal());
@@ -922,9 +908,9 @@ public:
 
 				Rayo r(posicion_camara, direccion.normal(), escena, 3);
 
-				if (solo_reflexion)
+				if (modo == ModoRender::SoloReflexion)
 					r.calcular_solo_reflexion();
-				else if (solo_transparencia)
+				else if (modo == ModoRender::SoloTransparencia)
 					r.calcular_solo_transparencia();
 
 				pixeles.push_back(r.color());
@@ -968,17 +954,23 @@ public:
 
 int main() {
     ifstream archivo("escena.json");
+
+    if (!archivo) {
+    	cerr << "Archivo de escena inexistente: escena.json" << endl;
+    	return 1;
+    }
+    
     json j = json::parse(archivo);
 
 	Escena escena(j);
 	Imagen imagen(&escena, j);
 
-	imagen.dibujar();
+	imagen.dibujar(ModoRender::Completo);
 	imagen.guardar("foto.png");
 
-	imagen.calcular_solo_reflexion().dibujar();
+	imagen.dibujar(ModoRender::SoloReflexion);
 	imagen.guardar("reflexion.png");
 
-	imagen.calcular_solo_transparencia().dibujar();
+	imagen.dibujar(ModoRender::SoloTransparencia);
 	imagen.guardar("transparencia.png");
 }
