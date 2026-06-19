@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -O1 -std=c++20 -I/opt/homebrew/include -I/opt/homebrew/include/SDL2 -I./include
+CXXFLAGS = -O3 -std=c++20 -I/opt/homebrew/include -I/opt/homebrew/include/SDL2 -I./include
 LDFLAGS = -L/opt/homebrew/lib
 LIBS = -lFreeImage -lSDL2
 

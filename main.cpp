@@ -239,6 +239,15 @@ void from_json(const json& j, Color& color) {
     color.r = j.at(0).get<float>();
     color.g = j.at(1).get<float>();
     color.b = j.at(2).get<float>();
+
+    if (color.r < 0 || 255 < color.r || color.g < 0 || 255 < color.g
+    	|| color.b < 0 || 255 < color.b) {
+    	throw json::type_error::create(
+            302,
+            "Los colores tienen que estar en el rango 0-255",
+            &j
+        );
+    }
 }
 
 class Luz {
@@ -249,11 +258,10 @@ public:
 	Luz(Vector posicion, Color difusa, Color especular)
 		: posicion(posicion), difusa(difusa), especular(especular) {}
 
-	Luz(const json& j) {
-		posicion = j["posicion"].get<Vector>();
-		difusa = j["difusa"].get<Color>();
-		especular = j["especular"].get<Color>();
-	}
+	explicit Luz(const json& j)
+		: posicion(j.at("posicion").get<Vector>()),
+		  difusa(j.at("difusa").get<Color>()),
+		  especular(j.at("especular").get<Color>()) {}
 
 	Vector get_posicion() const {
 		return posicion;
@@ -277,15 +285,13 @@ public:
 	Objeto(bool reflejante, float transparencia, float refraccion, Color ambiente, Color difusa, Color especular)
 		: reflejante(reflejante), transparencia(transparencia), refraccion(refraccion),
 		  ambiente(ambiente), difusa(difusa), especular(especular) {}
-
-	Objeto(const json& j) {
-		reflejante = j["espejado"].get<bool>();
-		transparencia = j["transparencia"].get<float>();
-		refraccion = j["refraccion"].get<float>();
-		ambiente = j["luz"]["ambiente"].get<Color>();
-		difusa = j["luz"]["difusa"].get<Color>();
-		especular = j["luz"]["especular"].get<Color>();
-	}
+	Objeto(const json& j)
+	    : reflejante(j.at("espejado").get<bool>()),
+	      transparencia(j.at("transparencia").get<float>()),
+	      refraccion(j.at("refraccion").get<float>()),
+	      ambiente(j.at("luz").at("ambiente").get<Color>()),
+	      difusa(j.at("luz").at("difusa").get<Color>()),
+	      especular(j.at("luz").at("especular").get<Color>()) {}
 
 	// Devuelven si el objeto es reflejante y su transparencia
 	bool get_reflejante() const {
@@ -329,10 +335,10 @@ public:
 		   Color ambiente, Color difusa, Color especular)
 		: centro(centro), radio(radio), Objeto(reflejante, transparencia, refraccion, ambiente, difusa, especular) {}
 
-	Esfera(const json& j) : Objeto(j) {
-		centro = j["posicion"].get<Vector>();
-		radio = j["radio"].get<float>();
-	}
+	explicit Esfera(const json& j)
+		: Objeto(j),
+		  centro(j.at("posicion").get<Vector>()),
+		  radio(j.at("radio").get<float>()) {}
 
 	// Devuelve el menor t > 0 tal que p + tv está en el objeto.
 	float interseccion_mas_cercana(const Vector &p, const Vector &v) const override {
@@ -379,10 +385,10 @@ public:
 	Color ambiente, Color difusa, Color especular) : punto_plano(punto), normal_plano(normal.normal()), 
           Objeto(reflejante, transparencia, 1, ambiente, difusa, especular) {}
 	
-	Plano(const json& j) : Objeto(j) {
-		punto_plano = j["punto"].get<Vector>();
-		normal_plano = j["normal"].get<Vector>();
-	}
+	explicit Plano(const json& j)
+		: Objeto(j),
+		  punto_plano(j.at("punto").get<Vector>()),
+		  normal_plano(j.at("normal").get<Vector>()) {}
 
 	float interseccion_mas_cercana(const Vector &p, const Vector &v) const override {
 		float denominador = v * normal_plano;
@@ -418,11 +424,11 @@ public:
 			Color ambiente, Color difusa, Color especular)
 			: centro(c), radio(r), altura(h), Objeto(reflectante, transparencia, refraccion ,ambiente,difusa, especular){}
 	
-	Cilindro(const json& j) : Objeto(j) {
-		centro = j["posicion"].get<Vector>();
-		radio = j["radio"].get<float>();
-		altura = j["altura"].get<float>();
-	}
+	explicit Cilindro(const json& j)
+		: Objeto(j),
+		  centro(j.at("posicion").get<Vector>()),
+		  radio(j.at("radio").get<float>()),
+		  altura(j.at("altura").get<float>()) {}
 
 	float interseccion_mas_cercana(const Vector &p, const Vector &v) const override {
 		float t_min = std::numeric_limits<float>::infinity();
@@ -615,26 +621,25 @@ public:
 	Escena(Color color_fondo, Color luz_ambiente)
 		: color(color_fondo), ambiente(luz_ambiente) {};
 		
-	Escena(json j) {
-	    color = j["color_fondo"].get<Color>();
-	    ambiente = j["luz_ambiente"].get<Color>();
-
-	    for (const auto& esfera : j["objetos"]["esferas"]) {
+	explicit Escena(json j)
+		: color(j.at("color_fondo").get<Color>()),
+		  ambiente(j.at("luz_ambiente").get<Color>()) {
+	    for (const auto& esfera : j.at("objetos")["esferas"]) {
 	    	Objeto *o = new Esfera(esfera);
 	    	lista_objetos.push_back(o);
 	    }
 
-	    for (const auto& cilindro : j["objetos"]["cilindros"]) {
+	    for (const auto& cilindro : j.at("objetos")["cilindros"]) {
 	    	Objeto *o = new Cilindro(cilindro);
 	    	lista_objetos.push_back(o);
 	    }
 
-	    for (const auto& plano : j["objetos"]["planos"]) {
+	    for (const auto& plano : j.at("objetos")["planos"]) {
 	    	Objeto *o = new Plano(plano);
 	    	lista_objetos.push_back(o);
 	    }
 
-	    for (const auto& malla : j["objetos"]["mallas"]) {
+	    for (const auto& malla : j.at("objetos")["mallas"]) {
 	    	Objeto *o = new MallaCuadrilateros(malla);
 	    	lista_objetos.push_back(o);
 	    }
@@ -676,7 +681,7 @@ private:
 	const float COEFICIENTE_ESPECULAR = 100;
 
 	const Vector punto_inicial, direccion;
-	const Escena *escena;
+	const Escena &escena;
 	const Objeto *evitado; // No queremos calcular intersecciones con este objeto
 	const Objeto *adentro; // Estamos adentro de este objeto
 
@@ -691,7 +696,7 @@ private:
 	Color oclusion(float distancia_maxima) const {
 		Color color({255, 255, 255});
 
-		for (const auto objeto : escena->objetos()) {
+		for (const auto objeto : escena.objetos()) {
 			if (objeto == evitado)
 				continue;
 
@@ -718,7 +723,7 @@ private:
 		if (adentro != nullptr)
 			r.adentro_de(adentro);
 
-		return objeto->luz_especular() * r.color() * 0.6;
+		return objeto->luz_especular() * r.trazar() * 0.6;
 	}
 
 	Color transparencia(const Objeto *objeto, const Vector &punto, const Vector &normal) const {
@@ -759,7 +764,7 @@ private:
 			else
 				t.adentro_de(objeto); // Estamos entrando al objeto
 
-			return objeto->luz_difusa() * t.color();
+			return objeto->luz_difusa() * t.trazar();
 		}
 
 		return {0, 0, 0};
@@ -769,9 +774,9 @@ private:
 		Vector punto = punto_inicial + d * direccion;
 		Vector normal = objeto->normal_en_punto(punto);
 
-		Color color = objeto->luz_ambiente() * escena->luz_ambiente();
+		Color color = objeto->luz_ambiente() * escena.luz_ambiente();
 
-		for (const auto luz : escena->luces()) {
+		for (const auto luz : escena.luces()) {
 			Vector direccion_a_luz = luz->get_posicion() - punto;
 			float distancia_luz = direccion_a_luz.get_norma();
 			direccion_a_luz = direccion_a_luz / distancia_luz;
@@ -810,7 +815,7 @@ private:
 		float distancia_minima = numeric_limits<float>::infinity();
 		const Objeto *mas_cercano = nullptr;
 
-		for (auto objeto : escena->objetos()) {
+		for (auto objeto : escena.objetos()) {
 			if (objeto == evitado && objeto != adentro)
 				continue;
 
@@ -827,7 +832,7 @@ private:
 
 public:
 	Rayo(const Vector punto_inicial, const Vector direccion,
-		 const Escena *escena, int profundidad)
+		 const Escena &escena, int profundidad)
 		: punto_inicial(punto_inicial), direccion(direccion),
 		  escena(escena), evitado(nullptr), adentro(nullptr),
 		  solo_reflexion(false), solo_transparencia(false),
@@ -853,7 +858,7 @@ public:
 		solo_transparencia = true;
 	}
 
-	Color color() const {
+	Color trazar() const {
 		auto mas_cercano = objeto_mas_cercano();
 
 		if (mas_cercano.first != nullptr) {
@@ -866,60 +871,22 @@ public:
 			else
 				return sombra(mas_cercano.first, mas_cercano.second);
 		} else
-			return escena->color_fondo();
+			return escena.color_fondo();
 	}
 };
 
 enum class ModoRender { Completo, SoloReflexion, SoloTransparencia };
 
 class Imagen {
-private:
-	const Escena *escena;
 	int largo, alto;
-	Vector posicion_camara, direccion_vista, up;
+	const vector<Color> pixeles;
 
-	vector<Color> pixeles;
 public:
-	Imagen(const Escena *escena, int largo, int alto,
-		   const Vector posicion_camara, const Vector direccion_vista, const Vector up)
-		: escena(escena), largo(largo), alto(alto), posicion_camara(posicion_camara),
-		  direccion_vista(direccion_vista.normal()), up(up.normal()) {}
-
-	Imagen(const Escena *escena, const json &j) : escena(escena) {
-		largo = j["largo_imagen"].get<int>();
-		alto = j["alto_imagen"].get<int>();
-		posicion_camara = j["posicion_camara"].get<Vector>();
-		direccion_vista = j["direccion_vista"].get<Vector>();
-		up = j["direccion_arriba"].get<Vector>().normal();
-	}
-
-	// Dibuja la escena y devuelve los pixeles (el tamaño del vector es largo * alto)
-	void dibujar(ModoRender modo) {
-		pixeles.clear();
-		pixeles.reserve(largo * alto);
-		Vector direccion_barrido = up.producto_vectorial(direccion_vista.normal());
-
-		for (int i = 0; i < alto; i++) {
-			for (int j = 0; j < largo; j++) {
-				Vector direccion =
-					direccion_vista
-					+ direccion_barrido * (j - largo / 2.0) / alto
-					+ up * (alto / 2.0 - i) / alto;
-
-				Rayo r(posicion_camara, direccion.normal(), escena, 3);
-
-				if (modo == ModoRender::SoloReflexion)
-					r.calcular_solo_reflexion();
-				else if (modo == ModoRender::SoloTransparencia)
-					r.calcular_solo_transparencia();
-
-				pixeles.push_back(r.color());
-			}
-		}
-	}
+	Imagen(int largo, int alto, vector<Color> pixeles)
+		: largo(largo), alto(alto), pixeles(pixeles) {}
 
 	// Guarda la imagen en un archivo
-	void guardar(string archivo) {
+	void guardar(const string &archivo) {
 		// Inicializar librería
 		FreeImage_Initialise();
 		FIBITMAP *imagen = FreeImage_Allocate(largo, alto, 24);
@@ -952,6 +919,58 @@ public:
 	}
 };
 
+class Renderer {
+private:
+	const Escena &escena;
+	int largo, alto;
+	Vector posicion_camara, direccion_vista, up;
+public:
+	Renderer(const Escena &escena, int largo, int alto,
+		     const Vector posicion_camara, const Vector direccion_vista, const Vector up)
+		: escena(escena), largo(largo), alto(alto), posicion_camara(posicion_camara),
+		  direccion_vista(direccion_vista.normal()), up(up.normal()) {}
+
+	Renderer(const Escena &escena, const json &j)
+		: escena(escena),
+		  largo(j.at("largo_imagen").get<int>()),
+		  alto(j.at("alto_imagen").get<int>()),
+		  posicion_camara(j.at("posicion_camara").get<Vector>()),
+		  direccion_vista(j.at("direccion_vista").get<Vector>()),
+		  up(j.at("direccion_arriba").get<Vector>().normal()) {
+		if (largo <= 0 || alto <= 0) {
+			cerr << "El largo y alto de la imagen tiene que ser positivo" << endl;
+			exit(1);
+		}
+	}
+
+	// Dibuja la escena y devuelve la imagen correspondiente
+	Imagen dibujar(ModoRender modo) {
+		vector<Color> pixeles;
+		pixeles.reserve(largo * alto);
+		Vector direccion_barrido = up.producto_vectorial(direccion_vista.normal());
+
+		for (int i = 0; i < alto; i++) {
+			for (int j = 0; j < largo; j++) {
+				Vector direccion =
+					direccion_vista
+					+ direccion_barrido * (j - largo / 2.0) / alto
+					+ up * (alto / 2.0 - i) / alto;
+
+				Rayo r(posicion_camara, direccion.normal(), escena, 3);
+
+				if (modo == ModoRender::SoloReflexion)
+					r.calcular_solo_reflexion();
+				else if (modo == ModoRender::SoloTransparencia)
+					r.calcular_solo_transparencia();
+
+				pixeles.push_back(r.trazar());
+			}
+		}
+
+		return Imagen(largo, alto, pixeles);
+	}
+};
+
 int main() {
     ifstream archivo("escena.json");
 
@@ -959,18 +978,29 @@ int main() {
     	cerr << "Archivo de escena inexistente: escena.json" << endl;
     	return 1;
     }
-    
+
     json j = json::parse(archivo);
 
-	Escena escena(j);
-	Imagen imagen(&escena, j);
+    try {
+		Escena escena(j);
+		Renderer renderer(escena, j);
 
-	imagen.dibujar(ModoRender::Completo);
-	imagen.guardar("foto.png");
+		renderer.dibujar(ModoRender::Completo)
+			    .guardar("foto.png");
 
-	imagen.dibujar(ModoRender::SoloReflexion);
-	imagen.guardar("reflexion.png");
+		renderer.dibujar(ModoRender::SoloReflexion)
+			    .guardar("reflexion.png");
 
-	imagen.dibujar(ModoRender::SoloTransparencia);
-	imagen.guardar("transparencia.png");
+		renderer.dibujar(ModoRender::SoloTransparencia)
+			    .guardar("transparencia.png");
+	} catch (const json::type_error& e) {
+	    cerr << "Tipo incorrecto en el JSON: " << e.what() << endl;
+	    return 1;
+	} catch (const json::out_of_range& e) {
+	    cerr << "Falta un campo requerido: " << e.what() << endl;
+	    return 1;
+	} catch (const json::exception& e) {
+	    cerr << "Error de JSON: " << e.what() << " (id " << e.id << ")" << endl;
+	    return 1;
+	}
 }
