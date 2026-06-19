@@ -1,0 +1,193 @@
+{
+	"largo_imagen": 1000,
+	"alto_imagen": 1000,
+	"posicion_camara": [0, 0, 0],
+	"direccion_vista": [0, 0, 1.2],
+	"direccion_arriba": [0, 1, 0],
+	"color_fondo": [0, 0, 0],
+	"luz_ambiente": [50, 50, 50],
+	"luces": [
+		{
+			"posicion": [0, 1.5, 9.5],
+			"difusa": [110, 110, 110],
+			"especular": [80, 80, 80]
+		},
+		{
+			"posicion": [0, 1.5, 12.5],
+			"difusa": [110, 110, 110],
+			"especular": [80, 80, 80]
+		}
+	],
+	"objetos": {
+		"esferas": [
+			{
+				"posicion": [1.5, -1.4, 12.2],
+				"radio": 0.6,
+				"espejado": true,
+				"transparencia": 1,
+				"refraccion": 1,
+				"luz": {
+					"difusa": [0, 0, 0],
+					"ambiente": [0, 0, 0],
+					"especular": [255, 255, 255]
+				}
+			},
+			{
+				"posicion": [-0.8, -1, 12.2],
+				"radio": 1,
+				"espejado": false,
+				"transparencia": 0.1,
+				"refraccion": 1.4,
+				"luz": {
+					"difusa": [107, 95, 95],
+					"ambiente": [107, 95, 95],
+					"especular": [255, 255, 255]
+				}
+			}
+		],
+		"cilindros": [
+			{
+				"posicion": [-0.2, -2, 12.2],
+				"radio": 0.6,
+				"altura": 1.3,
+				"espejado": false,
+				"transparencia": 1,
+				"refraccion": 1,
+				"luz": {
+					"difusa": [0, 255, 0],
+					"ambiente": [0, 255, 0],
+					"especular": [150, 150, 150]
+				}
+			}
+		],
+		"planos": [
+			{
+					"punto": [0, -4, 0],
+					"normal": [0, 1, 0],
+					"espejado": false,
+					"transparencia": 1,
+					"refraccion": 1,
+					"luz": {
+						"difusa": [220, 220, 220],
+						"ambiente": [220, 220, 220],
+						"especular": [100, 100, 100]
+					}
+			},
+			{
+					"punto": [0, 4, 0],
+					"normal": [0, -1, 0],
+					"espejado": false,
+					"transparencia": 1,
+					"refraccion": 1,
+					"luz": {
+						"difusa": [110, 110, 110],
+						"ambiente": [110, 110, 110],
+						"especular": [100, 100, 100]
+					}
+			},
+			{
+					"punto": [-4, 0, 0],
+					"normal": [1, 0, 0],
+					"espejado": false,
+					"transparencia": 1,
+					"refraccion": 1,
+					"luz": {
+						"difusa": [170, 0, 0],
+						"ambiente": [170, 0, 0],
+						"especular": [100, 100, 100]
+					}
+			},
+			{
+					"punto": [4, 0, 0],
+					"normal": [-1, 0, 0],
+					"espejado": false,
+					"transparencia": 1,
+					"refraccion": 1,
+					"luz": {
+						"difusa": [0, 100, 0],
+						"ambiente": [0, 100, 0],
+						"especular": [100, 100, 100]
+					}
+			},
+			{
+					"punto": [0, 0, 17.5],
+					"normal": [0, 0, -1],
+					"espejado": false,
+					"transparencia": 1,
+					"refraccion": 1,
+					"luz": {
+						"difusa": [230, 230, 230],
+						"ambiente": [230, 230, 230],
+						"especular": [10, 10, 10]
+					}
+			},
+			{
+					"punto": [0, 0, -0.1],
+					"normal": [0, 0, 1],
+					"espejado": false,
+					"transparencia": 1,
+					"refraccion": 1,
+					"luz": {
+						"difusa": [0, 0, 0],
+						"ambiente": [0, 0, 0],
+						"especular": [0, 0, 0]
+					}
+			}
+		],
+		"mallas": [
+			{
+				"vertices": [
+			        [-2.5, -2.0,  10],
+			        [2.5, -2.0,  10],
+			        [2.5, -2.0, 14],
+			        [-2.5, -2.0, 14],
+			        [-2.5, -2.2,  10],
+			        [2.5, -2.2,  10],
+			        [2.5, -2.2, 14],
+			        [-2.5, -2.2, 14],
+			        [-2.3, -4.0, 10.2],
+			        [-2.0, -4.0, 10.2],
+			        [-2.0, -4.0, 10.5],
+			        [-2.3, -4.0, 10.5],
+			        [-2.3, -2.2, 10.2],
+			        [-2.0, -2.2, 10.2],
+			        [-2.0, -2.2, 10.5],
+			        [-2.3, -2.2, 10.5],
+			        [2.0, -4.0, 10.2],
+			        [2.3, -4.0, 10.2],
+			        [2.3, -4.0, 10.5],
+			        [2.0, -4.0, 10.5],
+			        [2.0, -2.2, 10.2],
+			        [2.3, -2.2, 10.2],
+			        [2.3, -2.2, 10.5],
+			        [2.0, -2.2, 10.5]
+					
+				],
+				"caras": [
+					[3, 2, 1, 0],
+					[4, 5, 6, 7],
+					[0, 1, 5, 4],
+					[2, 3, 7, 6],
+					[0, 3, 7, 4],
+					[1, 2, 6, 5],
+        			[8, 9, 13, 12],
+        			[9, 10, 14, 13],
+        			[10, 11, 15, 14],
+        			[11, 8, 12, 15],
+        			[16, 17, 21, 20],
+        			[17, 18, 22, 21],
+        			[18, 19, 23, 22],
+        			[19, 16, 20, 23]
+				],
+				"espejado": false,
+				"transparencia": 1,
+				"refraccion": 1,
+				"luz": {
+					"difusa": [130, 70, 20],
+					"ambiente": [130, 70, 20],
+					"especular": [100, 100, 100]
+				}
+			}
+		]
+	}
+}
