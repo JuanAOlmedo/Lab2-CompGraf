@@ -690,6 +690,13 @@ private:
 		return color;
 	}
 
+	
+
+public:
+	Rayo(const Vector punto_inicial, const Vector direccion, const Escena *escena)
+		: punto_inicial(punto_inicial), direccion(direccion),
+		  escena(escena), evitado(nullptr), adentro(nullptr) {}
+
 	// Devuelve el objeto más cercano al rayo y la distancia a él.
 	// Si no interseca ningún objeto, devuelve {nullptr, infinity}.
 	std::pair<const Objeto *, float> objeto_mas_cercano() const {
@@ -710,11 +717,6 @@ private:
 
 		return {mas_cercano, distancia_minima};
 	}
-
-public:
-	Rayo(const Vector punto_inicial, const Vector direccion, const Escena *escena)
-		: punto_inicial(punto_inicial), direccion(direccion),
-		  escena(escena), evitado(nullptr), adentro(nullptr) {}
 
 	// Especifica un objeto a evitar al calcular intersecciones.
 	void evitar(const Objeto *o) {
@@ -802,6 +804,134 @@ public:
 		FreeImage_Unload(imagen);
 		FreeImage_DeInitialise();
 	}
+
+	void generar_mapa_reflexion(string archivo) {
+		pixeles.clear();
+		pixeles.reserve(largo * alto);
+		Vector direccion_barrido = up.producto_vectorial(direccion_vista);
+
+		for (int i = 0; i < alto; i++) {
+			for (int j = 0; j < largo; j++) {
+				// Generamos el rayo primario de la cámara exactamente igual que en dibujar()
+				Vector direccion =
+					direccion_vista
+					+ direccion_barrido * (j - largo / 2.0) / alto
+					+ up * (alto / 2.0 - i) / alto;
+
+				Rayo r(posicion_camara, direccion.normal(), escena);
+				
+				// Buscamos cuál es el objeto más cercano con el que choca el rayo
+				auto mas_cercano = r.objeto_mas_cercano();
+
+				Color color_gris({0.0f, 0.0f, 0.0f}); // Negro por defecto (fondo)
+
+				if (mas_cercano.first != nullptr) {
+					// Si hay impacto, evaluamos si el objeto es reflejante
+					// true -> Blanco (255), false -> Negro (0)
+					if (mas_cercano.first->get_reflejante()) {
+						color_gris = {255.0f, 255.0f, 255.0f}; // Blanco total
+					} else {
+						color_gris = {0.0f, 0.0f, 0.0f};       // Negro total
+					}
+				}
+
+				pixeles.push_back(color_gris);
+			}
+		}
+
+		// Reutilizamos la lógica exacta de FreeImage de tu método guardar() para salvar este mapa
+		FreeImage_Initialise();
+		FIBITMAP *imagen = FreeImage_Allocate(largo, alto, 24);
+
+		if (!imagen) {
+			FreeImage_DeInitialise();
+			cerr << "Error de FreeImage en mapa de reflexión" << endl; 
+			exit(1);
+		}
+
+		for (int i = 0; i < alto; i++) {
+			BYTE *fila = FreeImage_GetScanLine(imagen, i);
+
+			for (int j = 0; j < largo; j++) {
+				int indice = (alto - 1 - i) * largo + j;
+
+				fila[j * 3 + 0] = static_cast<unsigned char>(pixeles[indice].b);
+				fila[j * 3 + 1] = static_cast<unsigned char>(pixeles[indice].g);
+				fila[j * 3 + 2] = static_cast<unsigned char>(pixeles[indice].r);
+			}
+		}
+
+		FreeImage_Save(FIF_PNG, imagen, archivo.data(), PNG_DEFAULT);
+
+		FreeImage_Unload(imagen);
+		FreeImage_DeInitialise();
+	}
+
+	// Genera la imagen auxiliar para los coeficientes de transmisión (transparencia) en blanco y negro
+	void generar_mapa_transmision(string archivo) {
+		pixeles.clear();
+		pixeles.reserve(largo * alto);
+		Vector direccion_barrido = up.producto_vectorial(direccion_vista);
+
+		for (int i = 0; i < alto; i++) {
+			for (int j = 0; j < largo; j++) {
+				Vector direccion =
+					direccion_vista
+					+ direccion_barrido * (j - largo / 2.0) / alto
+					+ up * (alto / 2.0 - i) / alto;
+
+				Rayo r(posicion_camara, direccion.normal(), escena);
+				
+				auto mas_cercano = r.objeto_mas_cercano();
+
+				Color color_gris({0.0f, 0.0f, 0.0f}); // Negro por defecto (fondo/opaco)
+
+				if (mas_cercano.first != nullptr) {
+					// Extraemos el valor de transparencia del objeto (va de 0.0 a 1.0)
+					float t = mas_cercano.first->get_transparencia();
+
+					// AJUSTE DE ESCALA: 
+					// Si en tu código 0.0 es totalmente opaco y 1.0 es totalmente transparente, dejamos 't' directo.
+					// Si en tu código es al revés (0.0 transparente, 1.0 opaco), descomentá la siguiente línea:
+					// t = 1.0f - t;
+					t = 1.0f - t;
+					// Multiplicamos por 255 para llevarlo al rango de color RGB
+					float gris_val = t * 255.0f;
+					color_gris = {gris_val, gris_val, gris_val};
+				}
+
+				pixeles.push_back(color_gris);
+			}
+		}
+
+		// Guardamos la imagen en disco usando FreeImage
+		FreeImage_Initialise();
+		FIBITMAP *imagen = FreeImage_Allocate(largo, alto, 24);
+
+		if (!imagen) {
+			FreeImage_DeInitialise();
+			cerr << "Error de FreeImage en mapa de transmisión" << endl; 
+			exit(1);
+		}
+
+		for (int i = 0; i < alto; i++) {
+			BYTE *fila = FreeImage_GetScanLine(imagen, i);
+
+			for (int j = 0; j < largo; j++) {
+				int indice = (alto - 1 - i) * largo + j;
+
+				fila[j * 3 + 0] = static_cast<unsigned char>(pixeles[indice].b);
+				fila[j * 3 + 1] = static_cast<unsigned char>(pixeles[indice].g);
+				fila[j * 3 + 2] = static_cast<unsigned char>(pixeles[indice].r);
+			}
+		}
+
+		FreeImage_Save(FIF_PNG, imagen, archivo.data(), PNG_DEFAULT);
+
+		FreeImage_Unload(imagen);
+		FreeImage_DeInitialise();
+	}
+
 };
 
 int main() {
@@ -921,4 +1051,7 @@ int main() {
 
 	imagen.dibujar();
 	imagen.guardar("foto.png");
+
+	imagen.generar_mapa_reflexion("mapa_reflexion.png");
+	imagen.generar_mapa_transmision("mapa_transmision.png");
 }
