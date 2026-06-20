@@ -1,7 +1,8 @@
 {
-	"largo_imagen": 1000,
-	"alto_imagen": 1000,
+	"largo_imagen": 700,
+	"alto_imagen": 700,
 	"recursion": 3,
+	"celdas_para_aliasing": 2,
 	"posicion_camara": [0, 0, 0],
 	"direccion_vista": [0, 0, 1.2],
 	"direccion_arriba": [0, 1, 0],

@@ -4,6 +4,7 @@
 	"posicion_camara": [0, 0, 0],
 	"direccion_vista": [0, 0, 1.2],
 	"recursion": 10,
+	"celdas_para_aliasing": 1,
 	"direccion_arriba": [0, 1, 0],
 	"color_fondo": [0, 0, 0],
 	"luz_ambiente": [50, 50, 50],

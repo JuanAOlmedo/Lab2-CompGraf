@@ -286,7 +286,8 @@ private:
 	float transparencia, refraccion;
 	Color ambiente, difusa, especular;
 public:
-	Objeto(bool reflejante, float transparencia, float refraccion, Color ambiente, Color difusa, Color especular)
+	Objeto(bool reflejante, float transparencia, float refraccion,
+		   Color ambiente, Color difusa, Color especular)
 		: reflejante(reflejante), transparencia(transparencia), refraccion(refraccion),
 		  ambiente(ambiente), difusa(difusa), especular(especular) {}
 	Objeto(const json& j)
@@ -339,7 +340,8 @@ private:
 public:
 	Esfera(Vector centro, float radio, bool reflejante, float transparencia, float refraccion,
 		   Color ambiente, Color difusa, Color especular)
-		: centro(centro), radio(radio), Objeto(reflejante, transparencia, refraccion, ambiente, difusa, especular) {}
+		: Objeto(reflejante, transparencia, refraccion, ambiente, difusa, especular),
+		  centro(centro), radio(radio) {}
 
 	explicit Esfera(const json& j)
 		: Objeto(j),
@@ -348,17 +350,13 @@ public:
 
 	// Devuelve el menor t > 0 tal que p + tv está en el objeto.
 	float interseccion_mas_cercana(const Vector &p, const Vector &v) const override {
-		/*
-		(p + tv - centro) * (p + tv - centro) = radio ^ 2
-		p * p + p * tv - p * centro + p * tv + tv * tv - tv * centro - centro * p - centro * tv + centro * centro = radio ^ 2
-		p * p + t^2(v * v) + centro * centro + 2t(p * v) - 2(p * centro) - 2t(centro * v) = radio ^ 2;
-		(v * v)t^2 + (2(p * v) - 2(centro * v))t + p * p + centro * centro - 2(p * centro) - radio ^ 2 = 0;
-		*/
+		// La ecuación cuadrática a resolver se obtiene desarrollando:
+		//     (p + tv - centro) * (p + tv - centro) = radio ^ 2
 		float c = p.get_norma_2() + centro.get_norma_2() - 2 * p.producto_interno(centro) - radio * radio,
 			  b = 2 * p.producto_interno(v) - 2 * centro.producto_interno(v),
 			  a = v.get_norma_2();
 
-		float det = b * b - 4 * a * c;
+		float det = b * b - 4.0f * a * c;
 		if (det < 0)
 			return -1; 
 
@@ -406,7 +404,6 @@ public:
 
 		// fórmula: t = ((q - p) . n) / (v . n)
         float t = ((punto_plano - p) * normal_plano) / denominador;
-        Vector direccion_a_centro = p + v * t - punto_plano;
 
 		// Si t es positivo, la intersección ocurrió adelante de la cámara
         if (t > 1e-6f)
@@ -441,7 +438,7 @@ public:
 		float t_min = std::numeric_limits<float>::infinity();
 		bool hubo_interseccion = false;
 
-		// --- 1. INTERSECCIÓN CON EL CUERPO LATERAL ---
+		// Primero calculamos la intersección con el cuerpo lateral
         float a = v.x * v.x + v.z * v.z;
         float b = 2.0f * ((p.x - centro.x) * v.x + (p.z - centro.z) * v.z);
         float c = (p.x - centro.x) * (p.x - centro.x) + 
@@ -455,7 +452,7 @@ public:
 
             // Revisamos ambas soluciones de la cuadrática
             for (float t : {t1, t2}) {
-                if (t > 1e-4f && t < t_min) {
+                if (t > 1e-4f && t < t_min && !hubo_interseccion) {
                     // Calculamos la altura Y del punto de impacto
                     float y_impacto = p.y + t * v.y;
                     // Validamos si cae dentro de la altura del cilindro
@@ -467,57 +464,48 @@ public:
             }
         }
 
-        // --- 2. INTERSECCIÓN CON LAS TAPAS (PLANOS LIMITADOS) ---
-        // Tapa Inferior (Plano en Y = centro.y)
+        // Ahora calculamos intersección con las tapas
         if (std::abs(v.y) > 1e-6f) {
+        	// Calcular intersecciones con los planos que contienen a las tapas
             float t_inf = (centro.y - p.y) / v.y;
-            if (t_inf > 1e-4f && t_inf < t_min) {
-                float x_impacto = p.x + t_inf * v.x;
-                float z_impacto = p.z + t_inf * v.z;
-                // Verificamos si el punto cae dentro del círculo de la tapa
-                float dist_2 = (x_impacto - centro.x) * (x_impacto - centro.x) +
-                               (z_impacto - centro.z) * (z_impacto - centro.z);
-                if (dist_2 <= radio * radio) {
-                    t_min = t_inf;
-                    hubo_interseccion = true;
-                }
-            }
-
-            // Tapa Superior (Plano en Y = centro.y + altura)
             float t_sup = ((centro.y + altura) - p.y) / v.y;
-            if (t_sup > 1e-4f && t_sup < t_min) {
-                float x_impacto = p.x + t_sup * v.x;
-                float z_impacto = p.z + t_sup * v.z;
-                // Verificamos si el punto cae dentro del círculo de la tapa
-                float dist_2 = (x_impacto - centro.x) * (x_impacto - centro.x) +
-                               (z_impacto - centro.z) * (z_impacto - centro.z);
-                if (dist_2 <= radio * radio) {
-                    t_min = t_sup;
-                    hubo_interseccion = true;
-                }
-            }
+
+            // Verificar si las intersecciones están dentro de las tapas y si son
+            // mínimas.
+            for (float t : {t_inf, t_sup}) {
+	            if (t > 1e-4f && t < t_min) {
+	                float x_impacto = p.x + t * v.x;
+	                float z_impacto = p.z + t * v.z;
+	                // Verificamos si el punto cae dentro del círculo de la tapa
+	                float dist_2 = (x_impacto - centro.x) * (x_impacto - centro.x) +
+	                               (z_impacto - centro.z) * (z_impacto - centro.z);
+	                if (dist_2 <= radio * radio) {
+	                    t_min = t;
+	                    hubo_interseccion = true;
+	                }
+	            }
+	        }
         }
 
         return hubo_interseccion ? t_min : -1.0f;
 	}
 
 	Vector normal_en_punto(const Vector &p) const override {
-        const float EPSILON = 0.001f;
+        const float EPSILON = 1e-4;
 
-        // 1. Tapa superior
-        if (p.y >= (centro.y + altura) - EPSILON) {
+        // Tapa superior:
+        if (p.y >= (centro.y + altura) - EPSILON)
             return Vector(0.0f, 1.0f, 0.0f);
-        }
-        // 2. Tapa inferior
-        if (p.y <= centro.y + EPSILON) {
+        // Tapa inferior:
+        if (p.y <= centro.y + EPSILON)
             return Vector(0.0f, -1.0f, 0.0f);
-        }
 
-        // 3. Cuerpo lateral (proyectamos la normal hacia afuera en X y Z)
+        // Cuerpo lateral:
+        // Le sacamos la componente en y para proyectar sobre el plano y = 0
+        // (y que sea normal al cuerpo)
         Vector de_centro_a_p = p - centro;
-        Vector normal_lateral(de_centro_a_p.x, 0.0f, de_centro_a_p.z);
-
-        return normal_lateral.normal();
+        // Dividimos entre el radio para normalizar
+        return Vector(de_centro_a_p.x / radio, 0.0f, de_centro_a_p.z / radio);
     }
 };
 
@@ -546,8 +534,8 @@ private:
     vector<CuadrilateroData> caras;
     mutable Vector normal_ultimo_impacto; // mutable permite modificarla dentro de métodos const
 
-    // Función auxiliar interna corregida con paso por referencia constante
-    static float interseccion_triangulo(const Vector& p, const Vector& v, const Vector& v0, const Vector& v1, const Vector& v2, Vector& normal_out) {
+    static float interseccion_triangulo(const Vector& p, const Vector& v,
+    		const Vector& v0, const Vector& v1, const Vector& v2, Vector& normal_out) {
         Vector edge1 = v1 - v0;
         Vector edge2 = v2 - v0;
         Vector h = v.producto_vectorial(edge2);
@@ -690,6 +678,8 @@ public:
 	}
 };
 
+enum class ModoRender { Completo, SoloReflexion, SoloTransparencia };
+
 class Rayo {
 private:
 	const float INDICE_REFRACCION_AIRE = 1;
@@ -699,8 +689,6 @@ private:
 	const Escena &escena;
 	const Objeto *evitado; // No queremos calcular intersecciones con este objeto
 	const Objeto *adentro; // Estamos adentro de este objeto
-
-	bool solo_reflexion, solo_transparencia;
 
 	int profundidad;
 
@@ -738,7 +726,25 @@ private:
 		if (adentro != nullptr)
 			r.adentro_de(adentro);
 
-		return objeto->luz_especular() * r.trazar() * 0.6;
+		return objeto->luz_especular() * r.trazar(ModoRender::Completo) * 0.6;
+	}
+
+	// Aplica la ley de Snell a un vector v que pasa de un material con
+	// coeficiente de refracción nabla1 a otro con coeficiente nabla2,
+	// colisionando en un punto con normal n.
+	// Si ocurre refracción interna total, no devuelve nada.
+	static optional<Vector> aplicar_snell(const Vector &v, const Vector &n, 
+								          float nabla1, float nabla2) {
+		// Calcular el ángulo de incidencia
+		float theta1 = n.angulo(v);
+		float theta_critico = std::asin(nabla2 / nabla1);
+
+		if (nabla1 > nabla2 && theta1 > theta_critico)
+			return std::nullopt;
+
+		float theta2 = std::asin(std::sin(theta1) * nabla1 / nabla2);
+
+		return v.cambiar_angulo(n, theta2);
 	}
 
 	Color transparencia(const Objeto *objeto, const Vector &punto, const Vector &normal) const {
@@ -765,26 +771,27 @@ private:
 			normal_efectiva = -normal;
 		}
 
-		float theta1 = normal_efectiva.angulo(direccion);
+		// Aplicamos la ley de snell y verificamos que no haya refracción interna total.
+		auto direccion_salida = aplicar_snell(direccion, normal_efectiva, nabla1, nabla2);
+		bool refraccion_interna_total = !direccion_salida.has_value();
 
 		// No calcular nada si hay refracción interna total
-		if (nabla1 <= nabla2 || theta1 <= std::asin(nabla2 / nabla1)) {
-			float theta2 = std::asin(std::sin(theta1) * nabla1 / nabla2);
-			Vector direccion_salida = direccion.cambiar_angulo(normal_efectiva, theta2);
-
-			Rayo t(punto + direccion * 0.0001, direccion_salida, escena, profundidad - 1);
+		if (!refraccion_interna_total) {
+			Rayo t(punto + direccion * 1e-4, *direccion_salida, escena, profundidad - 1);
 
 			if (objeto == adentro)
 				t.evitar(objeto); // Estamos saliendo del objeto, hacer que t lo evite
 			else
-				t.adentro_de(objeto); // Estamos entrando al objeto
+				t.adentro_de(objeto); // Estamos entrando al objeto, especificarlo
 
-			return objeto->luz_difusa() * t.trazar();
+			return objeto->luz_difusa() * t.trazar(ModoRender::Completo);
 		}
 
 		return {0, 0, 0};
 	}
 
+	// Devuelve el color que debería tener el rayo, sabiendo que intersecó
+	// el objeto especificado a distancia d del punto inicial.
 	Color sombra(const Objeto *objeto, float d) const {
 		Vector punto = punto_inicial + d * direccion;
 		Vector normal = objeto->normal_en_punto(punto);
@@ -801,6 +808,8 @@ private:
 			l.evitar(objeto);
 			Color oclusion_luz = l.oclusion(distancia_luz);
 
+			// Solo calcular iluminación si la superficie apunta en dirección
+			// a la fuente de luz.
 			if (producto > 0) {
 				// Calcular luz difusa
 				color += oclusion_luz * objeto->luz_difusa() * luz->luz_difusa() * producto;
@@ -812,6 +821,7 @@ private:
 				color += oclusion_luz * objeto->luz_especular() * luz->luz_especular() * producto_especular;
 			}
 
+			// Calcular componentes de reflexión y transparencia si corresponde,
 			if (profundidad > 0) {
 				if (objeto->get_reflejante())
 					color += reflexion(objeto, punto, normal);
@@ -850,7 +860,6 @@ public:
 		 const Escena &escena, int profundidad)
 		: punto_inicial(punto_inicial), direccion(direccion),
 		  escena(escena), evitado(nullptr), adentro(nullptr),
-		  solo_reflexion(false), solo_transparencia(false),
 		  profundidad(profundidad) {}
 
 	// Especifica un objeto a evitar al calcular intersecciones.
@@ -863,25 +872,15 @@ public:
 		adentro = o;
 	}
 
-	void calcular_solo_reflexion() {
-		solo_reflexion = true;
-		solo_transparencia = false;
-	}
-
-	void calcular_solo_transparencia() {
-		solo_reflexion = false;
-		solo_transparencia = true;
-	}
-
-	Color trazar() const {
+	Color trazar(ModoRender modo) const {
 		auto mas_cercano = objeto_mas_cercano();
 
 		if (mas_cercano.first != nullptr) {
 			Color blanco({255, 255, 255});
 
-			if (solo_reflexion)
+			if (modo == ModoRender::SoloReflexion)
 				return blanco * (float) mas_cercano.first->get_reflejante();
-			else if (solo_transparencia)
+			else if (modo == ModoRender::SoloTransparencia)
 				return blanco * (1 - mas_cercano.first->get_transparencia());
 			else
 				return sombra(mas_cercano.first, mas_cercano.second);
@@ -889,8 +888,6 @@ public:
 			return escena.color_fondo();
 	}
 };
-
-enum class ModoRender { Completo, SoloReflexion, SoloTransparencia };
 
 class Imagen {
 	int largo, alto;
@@ -937,23 +934,45 @@ public:
 class Renderer {
 private:
 	const Escena &escena;
-	int largo, alto, profundidad;
-	Vector posicion_camara, direccion_vista, up;
-public:
-	Renderer(const Escena &escena, int largo, int alto, int profundidad,
-		     const Vector posicion_camara, const Vector direccion_vista, const Vector up)
-		: escena(escena), largo(largo), alto(alto), profundidad(profundidad),
-		  posicion_camara(posicion_camara), direccion_vista(direccion_vista.normal()),
-		  up(up.normal()) {}
+	int largo, alto, profundidad, celdas_aliasing;
+	Vector posicion_camara, direccion_vista, up, direccion_barrido;
 
+	Color color_pixel(ModoRender modo, float i, float j) {
+		Color color({0, 0, 0});
+
+		// Implementación de antialiasing:
+		// Se crean (celdas_aliasing * celdas_aliasing) celdas y se traza
+		// un rayo por cada una de ellas.
+		for (int n = 0; n < celdas_aliasing; n++) {
+			for (int m = 0; m < celdas_aliasing; m++) {
+				// El pixel está ubicado en el punto posicion_camara + direccion.
+				// Calculamos direccion separando en tres componentes perpendiculares:
+				// direccion_vista, direccion_barrido y up.
+				// Dividimos las últimas dos componentes entre alto para normalizar el tamaño
+				// de píxeles.
+				Vector direccion =
+					direccion_vista
+					+ direccion_barrido * (j + (float) n / celdas_aliasing - largo / 2.0) / alto
+					+ up * (alto / 2.0 - i - (float) m / celdas_aliasing) / alto;
+
+				Rayo r(posicion_camara + direccion, direccion.normal(), escena, profundidad);
+				color += r.trazar(modo) * (1.0 / celdas_aliasing / celdas_aliasing);
+			}
+		}
+
+		return color;
+	}
+public:
 	Renderer(const Escena &escena, const json &j)
 		: escena(escena),
 		  largo(j.at("largo_imagen").get<int>()),
 		  alto(j.at("alto_imagen").get<int>()),
 		  profundidad(j.at("recursion").get<int>()),
+		  celdas_aliasing(j.at("celdas_para_aliasing").get<int>()),
 		  posicion_camara(j.at("posicion_camara").get<Vector>()),
 		  direccion_vista(j.at("direccion_vista").get<Vector>()),
-		  up(j.at("direccion_arriba").get<Vector>().normal()) {
+		  up(j.at("direccion_arriba").get<Vector>().normal()),
+		  direccion_barrido(up.producto_vectorial(direccion_vista.normal())) {
 		if (largo <= 0 || alto <= 0) {
 			cerr << "El largo y alto de la imagen tiene que ser positivo" << endl;
 			exit(1);
@@ -962,29 +981,21 @@ public:
 			cerr << "La profundidad de recursión tiene que ser positiva" << endl;
 			exit(1);
 		}
+		if (celdas_aliasing <= 0) {
+			cerr << "La cantidad de celdas para aliasing tiene que ser positiva" << endl;
+			exit(1);
+		}
 	}
 
 	// Dibuja la escena y devuelve la imagen correspondiente
 	Imagen dibujar(ModoRender modo) {
 		vector<Color> pixeles;
 		pixeles.reserve(largo * alto);
-		Vector direccion_barrido = up.producto_vectorial(direccion_vista.normal());
 
+		// Crear largo * alto píxeles y calcular el color de cada uno.
 		for (int i = 0; i < alto; i++) {
 			for (int j = 0; j < largo; j++) {
-				Vector direccion =
-					direccion_vista
-					+ direccion_barrido * (j - largo / 2.0) / alto
-					+ up * (alto / 2.0 - i) / alto;
-
-				Rayo r(posicion_camara, direccion.normal(), escena, profundidad);
-
-				if (modo == ModoRender::SoloReflexion)
-					r.calcular_solo_reflexion();
-				else if (modo == ModoRender::SoloTransparencia)
-					r.calcular_solo_transparencia();
-
-				pixeles.push_back(r.trazar());
+				pixeles.push_back(color_pixel(modo, i, j));
 			}
 		}
 
