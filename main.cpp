@@ -392,7 +392,7 @@ public:
 	explicit Plano(const json& j)
 		: Objeto(j),
 		  punto_plano(j.at("punto").get<Vector>()),
-		  normal_plano(j.at("normal").get<Vector>()) {}
+		  normal_plano(j.at("normal").get<Vector>().normal()) {}
 
 	float interseccion_mas_cercana(const Vector &p, const Vector &v) const override {
 		float denominador = v * normal_plano;
@@ -538,25 +538,27 @@ private:
     		const Vector& v0, const Vector& v1, const Vector& v2, Vector& normal_out) {
         Vector edge1 = v1 - v0;
         Vector edge2 = v2 - v0;
+
         Vector h = v.producto_vectorial(edge2);
-        float a = edge1.producto_interno(h);
+        float det = edge1.producto_interno(h);
 
-        if (a > -1e-6f && a < 1e-6f) return -1.0f;
+        if (det > -1e-6f && det < 1e-6f) return -1.0f;
 
-        float f = 1.0f / a;
+        float inv_det = 1.0f / det;
         Vector s = p - v0;
-        float u = f * s.producto_interno(h);
+        float u = inv_det * s.producto_interno(h);
         if (u < 0.0f || u > 1.0f) return -1.0f;
 
         Vector q = s.producto_vectorial(edge1);
-        float _v = f * v.producto_interno(q);
+        float _v = inv_det * v.producto_interno(q);
         if (_v < 0.0f || u + _v > 1.0f) return -1.0f;
 
-        float t = f * edge2.producto_interno(q);
+        float t = inv_det * edge2.producto_interno(q);
         if (t > 1e-4f) {
             normal_out = edge1.producto_vectorial(edge2).normal();
             return t;
         }
+        
         return -1.0f;
     }
 
@@ -726,7 +728,7 @@ private:
 		if (adentro != nullptr)
 			r.adentro_de(adentro);
 
-		return objeto->luz_especular() * r.trazar(ModoRender::Completo) * 0.6;
+		return objeto->luz_especular() * r.trazar(ModoRender::Completo) * 0.5;
 	}
 
 	// Aplica la ley de Snell a un vector v que pasa de un material con

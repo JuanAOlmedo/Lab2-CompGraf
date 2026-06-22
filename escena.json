@@ -1,6 +1,6 @@
 {
-	"largo_imagen": 700,
-	"alto_imagen": 700,
+	"largo_imagen": 800,
+	"alto_imagen": 800,
 	"recursion": 3,
 	"celdas_para_aliasing": 2,
 	"posicion_camara": [0, 0, 0],
@@ -29,8 +29,8 @@
 				"transparencia": 1,
 				"refraccion": 1,
 				"luz": {
-					"difusa": [0, 0, 0],
-					"ambiente": [0, 0, 0],
+					"difusa": [100, 100, 100],
+					"ambiente": [100, 100, 100],
 					"especular": [255, 255, 255]
 				}
 			},
