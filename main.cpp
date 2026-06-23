@@ -536,25 +536,29 @@ private:
 
     static float interseccion_triangulo(const Vector& p, const Vector& v,
     		const Vector& v0, const Vector& v1, const Vector& v2, Vector& normal_out) {
+		const float EPSILON = 1e-5;
         Vector edge1 = v1 - v0;
         Vector edge2 = v2 - v0;
 
         Vector h = v.producto_vectorial(edge2);
         float det = edge1.producto_interno(h);
 
-        if (det > -1e-6f && det < 1e-6f) return -1.0f;
+        if (det > EPSILON && det < -EPSILON)
+        	return -1.0f;
 
         float inv_det = 1.0f / det;
         Vector s = p - v0;
         float u = inv_det * s.producto_interno(h);
-        if (u < 0.0f || u > 1.0f) return -1.0f;
+        if (u < 0.0f - EPSILON || u > 1.0f - EPSILON)
+        	return -1.0f;
 
         Vector q = s.producto_vectorial(edge1);
         float _v = inv_det * v.producto_interno(q);
-        if (_v < 0.0f || u + _v > 1.0f) return -1.0f;
+        if (_v < 0.0f - EPSILON || u + _v > 1.0f - EPSILON)
+        	return -1.0f;
 
         float t = inv_det * edge2.producto_interno(q);
-        if (t > 1e-4f) {
+        if (t > EPSILON) {
             normal_out = edge1.producto_vectorial(edge2).normal();
             return t;
         }
@@ -684,12 +688,12 @@ enum class ModoRender { Completo, SoloReflexion, SoloTransparencia };
 
 class Rayo {
 private:
+	const float EPSILON = 1e-3;
 	const float INDICE_REFRACCION_AIRE = 1;
 	const float COEFICIENTE_ESPECULAR = 100;
 
 	const Vector punto_inicial, direccion;
 	const Escena &escena;
-	const Objeto *evitado; // No queremos calcular intersecciones con este objeto
 	const Objeto *adentro; // Estamos adentro de este objeto
 
 	int profundidad;
@@ -702,9 +706,6 @@ private:
 		Color color({255, 255, 255});
 
 		for (const auto objeto : escena.objetos()) {
-			if (objeto == evitado)
-				continue;
-
 			float distancia = objeto->interseccion_mas_cercana(punto_inicial, direccion);
 
 			if (0 < distancia && distancia < distancia_maxima) {
@@ -721,9 +722,6 @@ private:
 	Color reflexion(const Objeto *objeto, const Vector &punto, const Vector &normal) const {
 		Rayo r(punto, direccion.reflexion(normal), escena, profundidad - 1);
 
-		// Evitar que r interseque el mismo objeto
-		if (adentro != objeto)
-			r.evitar(objeto);
 		// r va a estar sí o sí adentro del mismo objeto que yo
 		if (adentro != nullptr)
 			r.adentro_de(adentro);
@@ -779,11 +777,9 @@ private:
 
 		// No calcular nada si hay refracción interna total
 		if (!refraccion_interna_total) {
-			Rayo t(punto + direccion * 1e-4, *direccion_salida, escena, profundidad - 1);
+			Rayo t(punto + direccion * (EPSILON + 1e-4), *direccion_salida, escena, profundidad - 1);
 
-			if (objeto == adentro)
-				t.evitar(objeto); // Estamos saliendo del objeto, hacer que t lo evite
-			else
+			if (objeto != adentro)
 				t.adentro_de(objeto); // Estamos entrando al objeto, especificarlo
 
 			return objeto->luz_difusa() * t.trazar(ModoRender::Completo);
@@ -807,7 +803,6 @@ private:
 
 			float producto = normal * direccion_a_luz;
 			Rayo l(punto, direccion_a_luz, escena, 0);
-			l.evitar(objeto);
 			Color oclusion_luz = l.oclusion(distancia_luz);
 
 			// Solo calcular iluminación si la superficie apunta en dirección
@@ -843,18 +838,18 @@ private:
 		const Objeto *mas_cercano = nullptr;
 
 		for (auto objeto : escena.objetos()) {
-			if (objeto == evitado && objeto != adentro)
-				continue;
-
 			float distancia = objeto->interseccion_mas_cercana(punto_inicial, direccion);
 
-			if (distancia < distancia_minima && distancia > 0) {
+			if (distancia < distancia_minima && distancia > EPSILON) {
 				mas_cercano = objeto;
 				distancia_minima = distancia;
 			}
 		}
 
-		return {mas_cercano, distancia_minima};
+		if (adentro != nullptr && mas_cercano == nullptr)
+			return {adentro, EPSILON};
+		else
+			return {mas_cercano, distancia_minima - EPSILON};
 	}
 
 public:
@@ -863,11 +858,6 @@ public:
 		: punto_inicial(punto_inicial), direccion(direccion),
 		  escena(escena), evitado(nullptr), adentro(nullptr),
 		  profundidad(profundidad) {}
-
-	// Especifica un objeto a evitar al calcular intersecciones.
-	void evitar(const Objeto *o) {
-		evitado = o;
-	}
 
 	// Especifica adentro de qué objeto se está.
 	void adentro_de(const Objeto *o) {
