@@ -688,7 +688,7 @@ enum class ModoRender { Completo, SoloReflexion, SoloTransparencia };
 
 class Rayo {
 private:
-	const float EPSILON = 1e-3;
+	const float EPSILON = 3e-4;
 	const float INDICE_REFRACCION_AIRE = 1;
 	const float COEFICIENTE_ESPECULAR = 100;
 
