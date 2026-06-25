@@ -536,25 +536,25 @@ private:
 
     static float interseccion_triangulo(const Vector& p, const Vector& v,
     		const Vector& v0, const Vector& v1, const Vector& v2, Vector& normal_out) {
-		const float EPSILON = 1e-5;
+		const float EPSILON = 1e-6;
         Vector edge1 = v1 - v0;
         Vector edge2 = v2 - v0;
 
         Vector h = v.producto_vectorial(edge2);
         float det = edge1.producto_interno(h);
 
-        if (det > -EPSILON && det < EPSILON)
+        if (det < EPSILON)
         	return -1.0f;
 
         float inv_det = 1.0f / det;
         Vector s = p - v0;
         float u = inv_det * s.producto_interno(h);
-        if (u < 0.0f || u > 1.0f)
+        if (u < 0.0f - EPSILON || u > 1.0f + EPSILON)
         	return -1.0f;
 
         Vector q = s.producto_vectorial(edge1);
         float _v = inv_det * v.producto_interno(q);
-        if (_v < 0.0f || u + _v > 1.0f)
+        if (_v < 0.0f - EPSILON || u + _v > 1.0f + EPSILON)
         	return -1.0f;
 
         float t = inv_det * edge2.producto_interno(q);
@@ -590,14 +590,14 @@ public:
             Vector p3 = vertices[cara.v3];
 
             float tA = interseccion_triangulo(p, v, p0, p1, p2, normal_temporal);
-            if (tA > 1e-4f && tA < t_min) {
+            if (tA > 1e-4f && tA < t_min - 1e-4) {
                 t_min = tA;
                 normal_ultimo_impacto = normal_temporal;
                 hubo_impacto = true;
             }
 
             float tB = interseccion_triangulo(p, v, p0, p2, p3, normal_temporal);
-            if (tB > 1e-4f && tB < t_min) {
+            if (tB > 1e-4f && tB < t_min - 1e-4) {
                 t_min = tB;
                 normal_ultimo_impacto = normal_temporal;
                 hubo_impacto = true;
@@ -846,10 +846,7 @@ private:
 			}
 		}
 
-	//	if (adentro != nullptr && mas_cercano == adentro)
-	//		return {mas_cercano, distancia_minima};
-		//else
-			return {mas_cercano, distancia_minima - EPSILON};
+		return {mas_cercano, distancia_minima - EPSILON};
 	}
 
 public:
