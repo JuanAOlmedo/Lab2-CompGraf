@@ -543,18 +543,18 @@ private:
         Vector h = v.producto_vectorial(edge2);
         float det = edge1.producto_interno(h);
 
-        if (det > EPSILON && det < -EPSILON)
+        if (det > -EPSILON && det < EPSILON)
         	return -1.0f;
 
         float inv_det = 1.0f / det;
         Vector s = p - v0;
         float u = inv_det * s.producto_interno(h);
-        if (u < 0.0f - EPSILON || u > 1.0f - EPSILON)
+        if (u < 0.0f || u > 1.0f)
         	return -1.0f;
 
         Vector q = s.producto_vectorial(edge1);
         float _v = inv_det * v.producto_interno(q);
-        if (_v < 0.0f - EPSILON || u + _v > 1.0f - EPSILON)
+        if (_v < 0.0f || u + _v > 1.0f)
         	return -1.0f;
 
         float t = inv_det * edge2.producto_interno(q);
@@ -777,7 +777,7 @@ private:
 
 		// No calcular nada si hay refracción interna total
 		if (!refraccion_interna_total) {
-			Rayo t(punto + direccion * (EPSILON + 1e-4), *direccion_salida, escena, profundidad - 1);
+			Rayo t(punto + direccion * (1e-4 + EPSILON), *direccion_salida, escena, profundidad - 1);
 
 			if (objeto != adentro)
 				t.adentro_de(objeto); // Estamos entrando al objeto, especificarlo
@@ -846,9 +846,9 @@ private:
 			}
 		}
 
-		if (adentro != nullptr && mas_cercano == nullptr)
-			return {adentro, EPSILON};
-		else
+	//	if (adentro != nullptr && mas_cercano == adentro)
+	//		return {mas_cercano, distancia_minima};
+		//else
 			return {mas_cercano, distancia_minima - EPSILON};
 	}
 
@@ -856,8 +856,7 @@ public:
 	Rayo(const Vector punto_inicial, const Vector direccion,
 		 const Escena &escena, int profundidad)
 		: punto_inicial(punto_inicial), direccion(direccion),
-		  escena(escena), evitado(nullptr), adentro(nullptr),
-		  profundidad(profundidad) {}
+		  escena(escena), adentro(nullptr), profundidad(profundidad) {}
 
 	// Especifica adentro de qué objeto se está.
 	void adentro_de(const Objeto *o) {
