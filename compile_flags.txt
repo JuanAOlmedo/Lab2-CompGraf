@@ -1,0 +1,5 @@
+-std=c++23
+-Wall -Wextra
+-I/opt/homebrew/include -I/opt/homebrew/include/SDL2 -I./include
+-L/opt/homebrew/lib
+-lFreeImage -lSDL2

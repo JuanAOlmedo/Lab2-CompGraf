@@ -1,6 +1,6 @@
 {
-	"largo_imagen": 2000,
-	"alto_imagen": 2000,
+	"largo_imagen": 1000,
+	"alto_imagen": 1000,
 	"recursion": 3,
 	"celdas_para_aliasing": 1,
 	"posicion_camara": [0, 0, 0],
