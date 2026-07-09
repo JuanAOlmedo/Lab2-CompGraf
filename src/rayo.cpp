@@ -7,24 +7,28 @@ Color Rayo::oclusion(float distancia_maxima) const {
 		float distancia = objeto->interseccion_mas_cercana(punto_inicial, direccion);
 
 		if (0 < distancia && distancia < distancia_maxima) {
-			if (objeto->get_transparencia() == 1)
+			const Material material = objeto->get_material();
+
+			// Si nos chocamos contra un objeto opcao, terminar y devolver el color
+			// negro
+			if (material.transparencia == 1)
 				return {0, 0, 0};
 
-			color *= objeto->luz_difusa() * (1 / (5 * objeto->get_transparencia()));
+			color *= material.difusa * (1 / (5 * material.transparencia));
 		}
 	}
 
 	return color;
 }
 
-Color Rayo::reflexion(const Objeto *objeto, const Vector &punto, const Vector &normal) const {
+Color Rayo::reflexion(const Vector &punto, const Vector &normal) const {
 	Rayo r(punto, direccion.reflexion(normal), escena, profundidad - 1);
 
 	// r va a estar sí o sí adentro del mismo objeto que yo
 	if (adentro != nullptr)
 		r.adentro_de(adentro);
 
-	return objeto->luz_especular() * r.trazar(ModoRender::Completo) * 0.5;
+	return r.trazar(ModoRender::Completo);
 }
 
 optional<Vector> Rayo::aplicar_snell(const Vector &v, const Vector &n, float nabla1, float nabla2) {
@@ -49,7 +53,7 @@ Color Rayo::transparencia(const Objeto *objeto, const Vector &punto, const Vecto
 	if (adentro == nullptr)
 		nabla1 = INDICE_REFRACCION_AIRE;
 	else
-		nabla1 = adentro->get_refraccion();
+		nabla1 = adentro->get_material().refractividad;
 
 	if (objeto == adentro) {
 		// Si estamos adentro del objeto que intersecamos, el segundo índice de
@@ -58,7 +62,7 @@ Color Rayo::transparencia(const Objeto *objeto, const Vector &punto, const Vecto
 		normal_efectiva = normal;
 	} else {
 		// Si no, el segundo índice de refracción es el del objeto intersecado.
-		nabla2 = objeto->get_refraccion();
+		nabla2 = objeto->get_material().refractividad;
 		// La normal está apuntando en dirección opuesta a la dirección de entrada,
 		// invertirla
 		normal_efectiva = -normal;
@@ -75,7 +79,7 @@ Color Rayo::transparencia(const Objeto *objeto, const Vector &punto, const Vecto
 		if (objeto != adentro)
 			t.adentro_de(objeto); // Estamos entrando al objeto, especificarlo
 
-		return objeto->luz_difusa() * t.trazar(ModoRender::Completo);
+		return t.trazar(ModoRender::Completo);
 	}
 
 	return {0, 0, 0};
@@ -84,8 +88,9 @@ Color Rayo::transparencia(const Objeto *objeto, const Vector &punto, const Vecto
 Color Rayo::sombra(const Objeto *objeto, float d) const {
 	Vector punto = punto_inicial + d * direccion;
 	Vector normal = objeto->normal_en_punto(punto);
+	const Material material = objeto->get_material();
 
-	Color color = objeto->luz_ambiente() * escena.luz_ambiente();
+	Color color = material.ambiente * escena.luz_ambiente();
 
 	for (const auto luz : escena.luces()) {
 		Vector direccion_a_luz = luz->get_posicion() - punto;
@@ -101,22 +106,22 @@ Color Rayo::sombra(const Objeto *objeto, float d) const {
 			Color oclusion_luz = l.oclusion(distancia_luz);
 
 			// Calcular luz difusa
-			color += oclusion_luz * objeto->luz_difusa() * luz->luz_difusa() * producto;
+			color += oclusion_luz * material.difusa * luz->luz_difusa() * producto;
 
 			// Calcular luz especular
 			Vector h = (direccion_a_luz - direccion).normal();
 			float producto_especular = powf(normal * h, COEFICIENTE_ESPECULAR);
 
-			color += oclusion_luz * objeto->luz_especular() * luz->luz_especular() * producto_especular;
+			color += oclusion_luz * material.especular * luz->luz_especular() * producto_especular;
 		}
 
 		// Calcular componentes de reflexión y transparencia si corresponde,
 		if (profundidad > 0) {
-			if (objeto->get_reflejante())
-				color += reflexion(objeto, punto, normal);
+			if (material.reflectividad > 0)
+				color += reflexion(punto, normal) * material.especular * material.reflectividad;
 
-			if (objeto->get_transparencia() < 1)
-				color += transparencia(objeto, punto, normal);
+			if (material.transparencia < 1)
+				color += transparencia(objeto, punto, normal) * material.difusa;
 		}
 	}
 
@@ -155,9 +160,9 @@ Color Rayo::trazar(ModoRender modo) const {
 		Color blanco({255, 255, 255});
 
 		if (modo == ModoRender::SoloReflexion)
-			return blanco * (float) mas_cercano.first->get_reflejante();
+			return blanco * mas_cercano.first->get_material().reflectividad;
 		else if (modo == ModoRender::SoloTransparencia)
-			return blanco * (1 - mas_cercano.first->get_transparencia());
+			return blanco * (1 - mas_cercano.first->get_material().transparencia);
 		else
 			return sombra(mas_cercano.first, mas_cercano.second);
 	} else

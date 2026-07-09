@@ -1,9 +1,7 @@
 #pragma once
 
-#include <iostream>
-
 #include "escena.hpp"
-#include "rayo.hpp"
+#include <rayo.hpp>
 #include "utils/imagen.hpp"
 #include <utils/modo_render.hpp>
 

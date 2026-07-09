@@ -51,12 +51,6 @@ float Malla::interseccion_triangulo(const Vector& p, const Vector& v,
 	return -1.0f;
 }
 
-Malla::Malla(const std::vector<Vector>& vertices, const std::vector<Cara>& caras,
-			 bool reflejante, float transparencia, float refraccion,
-			 Color ambiente, Color difusa, Color especular)
-	: Objeto(reflejante, transparencia, refraccion, ambiente, difusa, especular),
-	  vertices(vertices), caras(caras), normal_ultimo_impacto(0, 1, 0) {}
-
 Malla::Malla(const nlohmann::json& j)
 	: Objeto(j),
 	  vertices(j.at("vertices").get<std::vector<Vector>>()),
@@ -91,6 +85,6 @@ float Malla::interseccion_mas_cercana(const Vector &p, const Vector &v) const {
 	return hubo_impacto ? t_min : -1.0f;
 }
 
-Vector Malla::normal_en_punto(const Vector &p) const {
+Vector Malla::normal_en_punto(const Vector &) const {
 	return normal_ultimo_impacto;
 }

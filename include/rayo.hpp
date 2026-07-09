@@ -22,7 +22,7 @@ private:
 	// devuelve el color del objeto.
 	Color oclusion(float distancia_maxima) const;
 
-	Color reflexion(const Objeto *objeto, const Vector &punto, const Vector &normal) const;
+	Color reflexion(const Vector &punto, const Vector &normal) const;
 
 	// Aplica la ley de Snell a un vector v que pasa de un material con
 	// coeficiente de refracción nabla1 a otro con coeficiente nabla2,

@@ -45,8 +45,8 @@ build/src/escena.o: src/escena.cpp include/escena.hpp \
   include/nlohmann/ordered_map.hpp \
   include/nlohmann/detail/macro_unscope.hpp \
   include/nlohmann/thirdparty/hedley/hedley_undef.hpp \
-  include/utils/color.hpp include/objeto.hpp include/luz.hpp \
-  include/objetos/esfera.hpp include/objetos/plano.hpp \
+  include/utils/color.hpp include/objeto.hpp include/utils/material.hpp \
+  include/luz.hpp include/objetos/esfera.hpp include/objetos/plano.hpp \
   include/objetos/cilindro.hpp include/objetos/malla.hpp
 include/escena.hpp:
 include/utils/vector.hpp:
@@ -98,6 +98,7 @@ include/nlohmann/detail/macro_unscope.hpp:
 include/nlohmann/thirdparty/hedley/hedley_undef.hpp:
 include/utils/color.hpp:
 include/objeto.hpp:
+include/utils/material.hpp:
 include/luz.hpp:
 include/objetos/esfera.hpp:
 include/objetos/plano.hpp:

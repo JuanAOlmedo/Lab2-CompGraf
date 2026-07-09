@@ -1,10 +1,5 @@
 #include <objetos/cilindro.hpp>
 
-Cilindro::Cilindro(Vector c, float r, float h, bool reflectante, float transparencia,float refraccion,
-		Color ambiente, Color difusa, Color especular)
-	: Objeto(reflectante, transparencia, refraccion ,ambiente,difusa, especular),
-	  centro(c), radio(r), altura(h) {}
-
 Cilindro::Cilindro(const nlohmann::json& j)
 	: Objeto(j),
 	  centro(j.at("posicion").get<Vector>()),

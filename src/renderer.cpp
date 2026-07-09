@@ -1,4 +1,6 @@
 #include <renderer.hpp>
+#include <rayo.hpp>
+#include <iostream>
 
 using namespace std;
 using namespace nlohmann;

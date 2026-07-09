@@ -15,9 +15,6 @@ private:
     		const Vector& v0, const Vector& v1, const Vector& v2, Vector& normal_out);
 
 public:
-    Malla(const std::vector<Vector>& vertices, const std::vector<Cara>& caras,
-                       bool reflejante, float transparencia, float refraccion,
-                       Color ambiente, Color difusa, Color especular);
 	explicit Malla(const nlohmann::json& j);
 
     float interseccion_mas_cercana(const Vector &p, const Vector &v) const override;

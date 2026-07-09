@@ -1,10 +1,5 @@
 #include <objetos/esfera.hpp>
 
-Esfera::Esfera(Vector centro, float radio, bool reflejante, float transparencia, float refraccion,
-	   Color ambiente, Color difusa, Color especular)
-	: Objeto(reflejante, transparencia, refraccion, ambiente, difusa, especular),
-	  centro(centro), radio(radio) {}
-
 Esfera::Esfera(const nlohmann::json& j)
 	: Objeto(j),
 	  centro(j.at("posicion").get<Vector>()),

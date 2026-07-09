@@ -1,5 +1,5 @@
-build/src/objetos/esfera.o: src/objetos/esfera.cpp \
-  include/objetos/esfera.hpp include/objeto.hpp \
+build/src/utils/material.o: src/utils/material.cpp \
+  include/utils/material.hpp include/utils/color.hpp \
   include/nlohmann/json.hpp include/nlohmann/adl_serializer.hpp \
   include/nlohmann/detail/abi_macros.hpp \
   include/nlohmann/detail/conversions/from_json.hpp \
@@ -44,11 +44,9 @@ build/src/objetos/esfera.o: src/objetos/esfera.cpp \
   include/nlohmann/detail/conversions/to_chars.hpp \
   include/nlohmann/ordered_map.hpp \
   include/nlohmann/detail/macro_unscope.hpp \
-  include/nlohmann/thirdparty/hedley/hedley_undef.hpp \
-  include/utils/color.hpp include/utils/material.hpp \
-  include/utils/vector.hpp
-include/objetos/esfera.hpp:
-include/objeto.hpp:
+  include/nlohmann/thirdparty/hedley/hedley_undef.hpp
+include/utils/material.hpp:
+include/utils/color.hpp:
 include/nlohmann/json.hpp:
 include/nlohmann/adl_serializer.hpp:
 include/nlohmann/detail/abi_macros.hpp:
@@ -95,6 +93,3 @@ include/nlohmann/detail/conversions/to_chars.hpp:
 include/nlohmann/ordered_map.hpp:
 include/nlohmann/detail/macro_unscope.hpp:
 include/nlohmann/thirdparty/hedley/hedley_undef.hpp:
-include/utils/color.hpp:
-include/utils/material.hpp:
-include/utils/vector.hpp:

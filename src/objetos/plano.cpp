@@ -1,10 +1,5 @@
 #include <objetos/plano.hpp>
 
-Plano::Plano(Vector punto, Vector normal, bool reflejante, bool transparencia,
-			 Color ambiente, Color difusa, Color especular)
-	: Objeto(reflejante, transparencia, 1, ambiente, difusa, especular),
-	  punto_plano(punto), normal_plano(normal.normal()) {}
-
 Plano::Plano(const nlohmann::json& j)
 	: Objeto(j),
 	  punto_plano(j.at("punto").get<Vector>()),

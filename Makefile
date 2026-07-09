@@ -38,6 +38,7 @@ SRC := main.cpp \
        src/objetos/plano.cpp \
        src/utils/color.cpp \
        src/utils/imagen.cpp \
+       src/utils/material.cpp \
        src/utils/vector.cpp
 
 OBJ := $(patsubst %.cpp,$(BUILD_DIR)/%.o,$(SRC))
