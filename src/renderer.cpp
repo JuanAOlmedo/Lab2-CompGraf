@@ -1,11 +1,14 @@
 #include <renderer.hpp>
 #include <rayo.hpp>
 #include <iostream>
+#include <thread>
+#include <functional>
+#include <pthread.h>
 
 using namespace std;
 using namespace nlohmann;
 
-Color Renderer::color_pixel(ModoRender modo, float i, float j) {
+Color Renderer::color_pixel(ModoRender modo, float i, float j) const {
 	Color color({0, 0, 0});
 
 	// Implementación de antialiasing:
@@ -37,6 +40,7 @@ Renderer::Renderer(const Escena &escena, const json &j)
 	  alto(j.at("alto_imagen").get<int>()),
 	  profundidad(j.at("recursion").get<int>()),
 	  celdas_aliasing(j.at("celdas_para_aliasing").get<int>()),
+	  cant_threads(j.at("cantidad_de_hilos").get<int>()),
 	  posicion_camara(j.at("posicion_camara").get<Vector>()),
 	  direccion_vista(j.at("direccion_vista").get<Vector>()),
 	  up(j.at("direccion_arriba").get<Vector>().normal()),
@@ -53,17 +57,35 @@ Renderer::Renderer(const Escena &escena, const json &j)
 		cerr << "La cantidad de celdas para aliasing tiene que ser positiva" << endl;
 		exit(1);
 	}
+	if (cant_threads <= 0) {
+		cerr << "La cantidad de hilos tiene que ser positiva" << endl;
+		exit(1);
+	}
 }
 
-Imagen Renderer::dibujar(ModoRender modo) {
-	vector<Color> pixeles;
-	pixeles.reserve(largo * alto);
-
+void Renderer::dibujar_filas(ModoRender modo, vector<Color> &pixeles, int primera, int salto) const {
 	// Crear largo * alto píxeles y calcular el color de cada uno.
-	for (int i = 0; i < alto; i++) {
+	for (int i = primera; i < alto; i += salto) {
 		for (int j = 0; j < largo; j++) {
-			pixeles.push_back(color_pixel(modo, i, j));
+			pixeles[i * largo + j] = color_pixel(modo, i, j);
 		}
+	}
+}
+
+Imagen Renderer::dibujar(ModoRender modo) const {
+	vector<Color> pixeles;
+	pixeles.resize(largo * alto);
+	vector<thread> threads;
+	threads.resize(cant_threads - 1);
+
+	for (int i = 0; i < cant_threads - 1; i++) {
+		threads[i] = thread(&Renderer::dibujar_filas, this, modo, std::ref(pixeles), i, cant_threads);
+	}
+	dibujar_filas(modo, pixeles, cant_threads - 1, cant_threads);
+
+	for (auto &thread : threads) {
+		if (thread.joinable())
+			thread.join();
 	}
 
 	return Imagen(largo, alto, std::move(pixeles));

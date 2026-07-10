@@ -23,12 +23,12 @@ int main() {
 
 		renderer.dibujar(ModoRender::Completo)
 			    .guardar("foto.png");
-
+/*
 		renderer.dibujar(ModoRender::SoloReflexion)
 			    .guardar("reflexion.png");
 
 		renderer.dibujar(ModoRender::SoloTransparencia)
-			    .guardar("transparencia.png");
+			    .guardar("transparencia.png");*/
 	} catch (const json::type_error& e) {
 	    cerr << "Tipo incorrecto en el JSON: " << e.what() << endl;
 	    return 1;
