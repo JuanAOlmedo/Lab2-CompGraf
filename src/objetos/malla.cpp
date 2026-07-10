@@ -50,14 +50,56 @@ float Malla::interseccion_triangulo(const Vector& p, const Vector& v,
 	return -1.0f;
 }
 
+Vector Malla::min_coordenadas() const {
+	Vector res(std::numeric_limits<float>::infinity(),
+			   std::numeric_limits<float>::infinity(),
+			   std::numeric_limits<float>::infinity());
+
+	for (const auto &vertice : vertices) {
+		if (vertice.x < res.x)
+			res.x = vertice.x;
+
+		if (vertice.y < res.y)
+			res.y = vertice.y;
+
+		if (vertice.z < res.z)
+			res.z = vertice.z;
+	}
+
+	return res - Vector(1e-5, 1e-5, 1e-5);
+}
+
+Vector Malla::max_coordenadas() const {
+	Vector res(-std::numeric_limits<float>::infinity(),
+			   -std::numeric_limits<float>::infinity(),
+			   -std::numeric_limits<float>::infinity());
+
+	for (const auto &vertice : vertices) {
+		if (vertice.x > res.x)
+			res.x = vertice.x;
+
+		if (vertice.y > res.y)
+			res.y = vertice.y;
+
+		if (vertice.z > res.z)
+			res.z = vertice.z;
+	}
+
+	return res + Vector(1e-5, 1e-5, 1e-5);
+}
+
 Malla::Malla(const nlohmann::json& j)
 	: Objeto(j),
 	  vertices(j.at("vertices").get<std::vector<Vector>>()),
-	  caras(j.at("caras").get<std::vector<Cara>>()) {}
+	  caras(j.at("caras").get<std::vector<Cara>>()),
+	  vol(min_coordenadas(), max_coordenadas()) { }
 
 Interseccion Malla::interseccion_mas_cercana(const Vector &p, const Vector &v) const {
 	float t_min = std::numeric_limits<float>::infinity();
 	Vector normal;
+
+	if (!vol.interseccion(p, v))
+		return {this, t_min, normal};
 
 	for (const auto& cara : caras) {
 		Vector p0 = vertices[cara.v0];

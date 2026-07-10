@@ -9,6 +9,6 @@ private:
 public:
 	explicit Cubo(const nlohmann::json& j);
 
-	virtual std::pair<float, Vector> interseccion_mas_cercana(const Vector &p, const Vector &v) const override;
+	virtual Interseccion interseccion_mas_cercana(const Vector &p, const Vector &v) const override;
 };
 

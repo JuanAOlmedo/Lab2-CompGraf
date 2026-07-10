@@ -7,10 +7,7 @@ Cubo::Cubo(const nlohmann::json& j)
 	  alto(j.at("alto").get<float>()),
 	  ancho(j.at("ancho").get<float>()) {}
 
-float Cubo::interseccion_mas_cercana(const Vector &p, const Vector &v) const {
+Interseccion Cubo::interseccion_mas_cercana(const Vector &p, const Vector &v) const {
 
 }
 
-Vector Cubo::normal_en_punto(const Vector &p) const {
-	return (p - centro) / radio;
-}

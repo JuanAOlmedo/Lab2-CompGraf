@@ -48,7 +48,8 @@ build/src/escena.o: src/escena.cpp include/escena.hpp \
   include/utils/color.hpp include/objeto.hpp \
   include/utils/interseccion.hpp include/utils/material.hpp \
   include/luz.hpp include/objetos/esfera.hpp include/objetos/plano.hpp \
-  include/objetos/cilindro.hpp include/objetos/malla.hpp
+  include/objetos/cilindro.hpp include/objetos/malla.hpp \
+  include/utils/volumen_acotante.hpp
 include/escena.hpp:
 include/utils/vector.hpp:
 include/nlohmann/json.hpp:
@@ -106,3 +107,4 @@ include/objetos/esfera.hpp:
 include/objetos/plano.hpp:
 include/objetos/cilindro.hpp:
 include/objetos/malla.hpp:
+include/utils/volumen_acotante.hpp:
