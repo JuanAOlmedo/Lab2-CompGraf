@@ -1,11 +1,11 @@
 #include <objetos/malla.hpp>
 
 struct Cara {
-    int v0, v1, v2, v3; // Los 4 índices de los vértices en sentido horario o antihorario
+    int v0, v1, v2;
 };
 
 void from_json(const nlohmann::json& j, Cara& c) {
-    if (!j.is_array() || j.size() != 4) {
+    if (!j.is_array() || j.size() != 3) {
         throw nlohmann::json::type_error::create(
             302,
             "Los cuadriláteros son arreglos de cuatro elementos",
@@ -16,7 +16,6 @@ void from_json(const nlohmann::json& j, Cara& c) {
     c.v0 = j.at(0).get<float>();
     c.v1 = j.at(1).get<float>();
     c.v2 = j.at(2).get<float>();
-    c.v3 = j.at(3).get<float>();
 }
 
 float Malla::interseccion_triangulo(const Vector& p, const Vector& v,
@@ -56,35 +55,23 @@ Malla::Malla(const nlohmann::json& j)
 	  vertices(j.at("vertices").get<std::vector<Vector>>()),
 	  caras(j.at("caras").get<std::vector<Cara>>()) {}
 
-float Malla::interseccion_mas_cercana(const Vector &p, const Vector &v) const {
+Interseccion Malla::interseccion_mas_cercana(const Vector &p, const Vector &v) const {
 	float t_min = std::numeric_limits<float>::infinity();
-	bool hubo_impacto = false;
-	Vector normal_temporal(0, 1, 0);
+	Vector normal;
 
 	for (const auto& cara : caras) {
 		Vector p0 = vertices[cara.v0];
 		Vector p1 = vertices[cara.v1];
 		Vector p2 = vertices[cara.v2];
-		Vector p3 = vertices[cara.v3];
 
-		float tA = interseccion_triangulo(p, v, p0, p1, p2, normal_temporal);
-		if (tA > 1e-4f && tA < t_min - 1e-4) {
-			t_min = tA;
-			normal_ultimo_impacto = normal_temporal;
-			hubo_impacto = true;
-		}
-
-		float tB = interseccion_triangulo(p, v, p0, p2, p3, normal_temporal);
-		if (tB > 1e-4f && tB < t_min - 1e-4) {
-			t_min = tB;
-			normal_ultimo_impacto = normal_temporal;
-			hubo_impacto = true;
+		Vector temp;
+		float t = interseccion_triangulo(p, v, p0, p1, p2, temp);
+		if (t > 1e-4f && t < t_min - 1e-4) {
+			t_min = t;
+			normal = temp;
 		}
 	}
 
-	return hubo_impacto ? t_min : -1.0f;
+	return {this, t_min, normal};
 }
 
-Vector Malla::normal_en_punto(const Vector &) const {
-	return normal_ultimo_impacto;
-}

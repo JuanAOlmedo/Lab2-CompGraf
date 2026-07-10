@@ -45,7 +45,8 @@ build/main.o: main.cpp include/nlohmann/json.hpp \
   include/nlohmann/detail/macro_unscope.hpp \
   include/nlohmann/thirdparty/hedley/hedley_undef.hpp \
   include/renderer.hpp include/escena.hpp include/utils/vector.hpp \
-  include/utils/color.hpp include/objeto.hpp include/utils/material.hpp \
+  include/utils/color.hpp include/objeto.hpp \
+  include/utils/interseccion.hpp include/utils/material.hpp \
   include/luz.hpp include/rayo.hpp include/utils/modo_render.hpp \
   include/utils/imagen.hpp /opt/homebrew/include/FreeImage.h
 include/nlohmann/json.hpp:
@@ -99,6 +100,7 @@ include/escena.hpp:
 include/utils/vector.hpp:
 include/utils/color.hpp:
 include/objeto.hpp:
+include/utils/interseccion.hpp:
 include/utils/material.hpp:
 include/luz.hpp:
 include/rayo.hpp:

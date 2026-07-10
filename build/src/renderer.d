@@ -45,7 +45,8 @@ build/src/renderer.o: src/renderer.cpp include/renderer.hpp \
   include/nlohmann/ordered_map.hpp \
   include/nlohmann/detail/macro_unscope.hpp \
   include/nlohmann/thirdparty/hedley/hedley_undef.hpp \
-  include/utils/color.hpp include/objeto.hpp include/utils/material.hpp \
+  include/utils/color.hpp include/objeto.hpp \
+  include/utils/interseccion.hpp include/utils/material.hpp \
   include/luz.hpp include/rayo.hpp include/utils/modo_render.hpp \
   include/utils/imagen.hpp /opt/homebrew/include/FreeImage.h
 include/renderer.hpp:
@@ -99,6 +100,7 @@ include/nlohmann/detail/macro_unscope.hpp:
 include/nlohmann/thirdparty/hedley/hedley_undef.hpp:
 include/utils/color.hpp:
 include/objeto.hpp:
+include/utils/interseccion.hpp:
 include/utils/material.hpp:
 include/luz.hpp:
 include/rayo.hpp:

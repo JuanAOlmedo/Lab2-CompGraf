@@ -35,11 +35,10 @@ private:
 
 	// Devuelve el color que debería tener el rayo, sabiendo que intersecó
 	// el objeto especificado a distancia d del punto inicial.
-	Color sombra(const Objeto *objeto, float d) const;
+	Color sombra(Interseccion inter) const;
 
 	// Devuelve el objeto más cercano al rayo y la distancia a él.
-	// Si no interseca ningún objeto, devuelve {nullptr, infinity}.
-	pair<const Objeto *, float> objeto_mas_cercano() const;
+	Interseccion objeto_mas_cercano() const;
 
 	// Especifica adentro de qué objeto se está.
 	void adentro_de(const Objeto *o);

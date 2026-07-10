@@ -4,9 +4,9 @@ Color Rayo::oclusion(float distancia_maxima) const {
 	Color color({255, 255, 255});
 
 	for (const auto objeto : escena.objetos()) {
-		float distancia = objeto->interseccion_mas_cercana(punto_inicial, direccion);
+		Interseccion inter = objeto->interseccion_mas_cercana(punto_inicial, direccion);
 
-		if (0 < distancia && distancia < distancia_maxima) {
+		if (inter.d < distancia_maxima) {
 			const Material material = objeto->get_material();
 
 			// Si nos chocamos contra un objeto opcao, terminar y devolver el color
@@ -85,9 +85,10 @@ Color Rayo::transparencia(const Objeto *objeto, const Vector &punto, const Vecto
 	return {0, 0, 0};
 }
 
-Color Rayo::sombra(const Objeto *objeto, float d) const {
-	Vector punto = punto_inicial + d * direccion;
-	Vector normal = objeto->normal_en_punto(punto);
+Color Rayo::sombra(Interseccion inter) const {
+	const Objeto *objeto = inter.objeto;
+	Vector punto = punto_inicial + inter.d * direccion;
+	Vector normal = inter.normal;
 	const Material material = objeto->get_material();
 
 	Color color = material.ambiente * escena.luz_ambiente();
@@ -128,20 +129,19 @@ Color Rayo::sombra(const Objeto *objeto, float d) const {
 	return color;
 }
 
-pair<const Objeto *, float> Rayo::objeto_mas_cercano() const {
-	float distancia_minima = numeric_limits<float>::infinity();
-	const Objeto *mas_cercano = nullptr;
+Interseccion Rayo::objeto_mas_cercano() const {
+	Interseccion inter_minima = {nullptr, numeric_limits<float>::infinity(), Vector()};
 
 	for (auto objeto : escena.objetos()) {
-		float distancia = objeto->interseccion_mas_cercana(punto_inicial, direccion);
+		auto inter = objeto->interseccion_mas_cercana(punto_inicial, direccion);
 
-		if (distancia < distancia_minima && distancia > EPSILON) {
-			mas_cercano = objeto;
-			distancia_minima = distancia;
+		if (inter.d < inter_minima.d && inter.d > EPSILON) {
+			inter_minima = inter;
 		}
 	}
 
-	return {mas_cercano, distancia_minima - EPSILON};
+	inter_minima.d -= EPSILON;
+	return inter_minima;
 }
 
 void Rayo::adentro_de(const Objeto *o) {
@@ -154,17 +154,17 @@ Rayo::Rayo(const Vector punto_inicial, const Vector direccion,
 	  escena(escena), adentro(nullptr), profundidad(profundidad) {}
 
 Color Rayo::trazar(ModoRender modo) const {
-	auto mas_cercano = objeto_mas_cercano();
+	Interseccion inter = objeto_mas_cercano();
 
-	if (mas_cercano.first != nullptr) {
+	if (inter.objeto != nullptr) {
 		Color blanco({255, 255, 255});
 
 		if (modo == ModoRender::SoloReflexion)
-			return blanco * mas_cercano.first->get_material().reflectividad;
+			return blanco * inter.objeto->get_material().reflectividad;
 		else if (modo == ModoRender::SoloTransparencia)
-			return blanco * (1 - mas_cercano.first->get_material().transparencia);
+			return blanco * (1 - inter.objeto->get_material().transparencia);
 		else
-			return sombra(mas_cercano.first, mas_cercano.second);
+			return sombra(inter);
 	} else
 		return escena.color_fondo();
 }

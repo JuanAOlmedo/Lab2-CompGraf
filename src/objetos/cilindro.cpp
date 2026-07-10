@@ -6,9 +6,8 @@ Cilindro::Cilindro(const nlohmann::json& j)
 	  radio(j.at("radio").get<float>()),
 	  altura(j.at("altura").get<float>()) {}
 
-float Cilindro::interseccion_mas_cercana(const Vector &p, const Vector &v) const {
-	float t_min = std::numeric_limits<float>::infinity();
-	bool hubo_interseccion = false;
+Interseccion Cilindro::interseccion_mas_cercana(const Vector &p, const Vector &v) const {
+	Interseccion res = {this, std::numeric_limits<float>::infinity(), Vector()};
 
 	// Primero calculamos la intersección con el cuerpo lateral
 	float a = v.x * v.x + v.z * v.z;
@@ -24,13 +23,16 @@ float Cilindro::interseccion_mas_cercana(const Vector &p, const Vector &v) const
 
 		// Revisamos ambas soluciones de la cuadrática
 		for (float t : {t1, t2}) {
-			if (t > 1e-4f && t < t_min && !hubo_interseccion) {
+			if (t > 1e-4f && t < res.d) {
 				// Calculamos la altura Y del punto de impacto
 				float y_impacto = p.y + t * v.y;
 				// Validamos si cae dentro de la altura del cilindro
 				if (y_impacto >= centro.y && y_impacto <= centro.y + altura) {
-					t_min = t;
-					hubo_interseccion = true;
+					Vector normal = (p + t * v - centro) / radio;
+
+					res.d = t;
+					// Proyectamos sobre el plano y = 0
+					res.normal = Vector(normal.x, 0.0f, normal.z);
 				}
 			}
 		}
@@ -45,37 +47,20 @@ float Cilindro::interseccion_mas_cercana(const Vector &p, const Vector &v) const
 		// Verificar si las intersecciones están dentro de las tapas y si son
 		// mínimas.
 		for (float t : {t_inf, t_sup}) {
-			if (t > 1e-4f && t < t_min) {
+			if (t > 1e-4f && t < res.d) {
 				float x_impacto = p.x + t * v.x;
 				float z_impacto = p.z + t * v.z;
 				// Verificamos si el punto cae dentro del círculo de la tapa
 				float dist_2 = (x_impacto - centro.x) * (x_impacto - centro.x) +
 							   (z_impacto - centro.z) * (z_impacto - centro.z);
 				if (dist_2 <= radio * radio) {
-					t_min = t;
-					hubo_interseccion = true;
+					res.d = t;
+					res.normal = Vector(0, t == t_inf ? -1 : 1, 0);
 				}
 			}
 		}
 	}
 
-	return hubo_interseccion ? t_min : -1.0f;
+	return res;
 }
 
-Vector Cilindro::normal_en_punto(const Vector &p) const {
-	const float EPSILON = 1e-4;
-
-	// Tapa superior:
-	if (p.y >= (centro.y + altura) - EPSILON)
-		return Vector(0.0f, 1.0f, 0.0f);
-	// Tapa inferior:
-	if (p.y <= centro.y + EPSILON)
-		return Vector(0.0f, -1.0f, 0.0f);
-
-	// Cuerpo lateral:
-	// Le sacamos la componente en y para proyectar sobre el plano y = 0
-	// (y que sea normal al cuerpo)
-	Vector de_centro_a_p = p - centro;
-	// Dividimos entre el radio para normalizar
-	return Vector(de_centro_a_p.x / radio, 0.0f, de_centro_a_p.z / radio);
-}

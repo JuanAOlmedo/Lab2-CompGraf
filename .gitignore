@@ -365,3 +365,4 @@ FodyWeavers.xsd
 # Para Mac :)
 compile_commands.json
 main
+build

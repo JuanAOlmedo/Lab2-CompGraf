@@ -3,6 +3,7 @@
 #include <nlohmann/json.hpp>
 
 #include <utils/color.hpp>
+#include <utils/interseccion.hpp>
 #include <utils/material.hpp>
 #include <utils/vector.hpp>
 
@@ -19,7 +20,6 @@ public:
 
 	// Devuelve el menor t > 0 tal que p + tv está en el objeto.
 	// Devuelve negativo si no existe.
-	virtual float interseccion_mas_cercana(const Vector &p, const Vector &v) const = 0;
-	// Devuelve la normal del objeto en el punto p.
-	virtual Vector normal_en_punto(const Vector &p) const = 0;
+	// Si existe, devuelve además la normal en ese punto del objeto.
+	virtual Interseccion interseccion_mas_cercana(const Vector &p, const Vector &v) const = 0;
 };

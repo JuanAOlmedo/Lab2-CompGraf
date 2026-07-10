@@ -44,8 +44,8 @@ build/src/objeto.o: src/objeto.cpp include/objeto.hpp \
   include/nlohmann/ordered_map.hpp \
   include/nlohmann/detail/macro_unscope.hpp \
   include/nlohmann/thirdparty/hedley/hedley_undef.hpp \
-  include/utils/color.hpp include/utils/material.hpp \
-  include/utils/vector.hpp
+  include/utils/color.hpp include/utils/interseccion.hpp \
+  include/utils/vector.hpp include/utils/material.hpp
 include/objeto.hpp:
 include/nlohmann/json.hpp:
 include/nlohmann/adl_serializer.hpp:
@@ -94,5 +94,6 @@ include/nlohmann/ordered_map.hpp:
 include/nlohmann/detail/macro_unscope.hpp:
 include/nlohmann/thirdparty/hedley/hedley_undef.hpp:
 include/utils/color.hpp:
-include/utils/material.hpp:
+include/utils/interseccion.hpp:
 include/utils/vector.hpp:
+include/utils/material.hpp:
